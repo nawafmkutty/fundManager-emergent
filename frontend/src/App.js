@@ -1908,6 +1908,90 @@ function App() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {deposit.description || 'No description'}
                         </td>
+        {/* Repayments Tab */}
+        {activeTab === 'repayments' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow">
+              <div className="p-6 border-b">
+                <h3 className="text-lg font-medium text-gray-900">Your Repayments</h3>
+                <p className="text-sm text-gray-600 mt-1">Track your loan repayment history and status</p>
+                <button
+                  onClick={fetchRepayments}
+                  className="mt-2 text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"
+                >
+                  Refresh
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Application</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Installment</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {repayments.map((repayment) => (
+                      <tr key={repayment.id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">Application #{repayment.application_id?.slice(-8) || 'N/A'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          #{repayment.installment_number}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {formatCurrency(repayment.amount)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatDate(repayment.due_date)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getStatusBadge(repayment.status)}
+                          {repayment.paid_date && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              Paid: {formatDate(repayment.paid_date)}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {repayment.status === 'pending' && (
+                            <button
+                              onClick={() => {
+                                alert('Payment processing would be integrated with payment gateway in production');
+                              }}
+                              className="text-green-600 hover:text-green-800 text-xs bg-green-100 px-2 py-1 rounded"
+                            >
+                              Pay Now
+                            </button>
+                          )}
+                          {repayment.status === 'overdue' && (
+                            <button
+                              onClick={() => {
+                                alert('Late payment processing would be integrated with payment gateway in production');
+                              }}
+                              className="text-red-600 hover:text-red-800 text-xs bg-red-100 px-2 py-1 rounded"
+                            >
+                              Pay Late
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {repayments.length === 0 && (
+                  <div className="p-6 text-center text-gray-500">
+                    No repayments found. Repayments appear after you receive loan disbursements.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {formatDate(deposit.created_at)}
                         </td>
