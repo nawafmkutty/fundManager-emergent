@@ -166,7 +166,12 @@ class FundManagementFixesTest(unittest.TestCase):
     def test_06_create_finance_application(self):
         """Test creating a finance application with guarantor"""
         print("\n🔍 Testing finance application creation...")
+        if not self.user_token:
+            self.skipTest("User token not found")
+            
         headers = {"Authorization": f"Bearer {self.user_token}"}
+        debug_print(f"Using user token: {self.user_token[:20]}...")
+        
         application_data = {
             "amount": 500.00,
             "purpose": "Test application with guarantor",
@@ -174,11 +179,16 @@ class FundManagementFixesTest(unittest.TestCase):
             "description": "Testing ObjectId serialization fixes",
             "guarantors": [self.guarantor_id]
         }
+        debug_print(f"Application data: {application_data}")
+        
         response = requests.post(
             f"{self.api_url}/api/finance-applications",
             json=application_data,
             headers=headers
         )
+        debug_print(f"Response status: {response.status_code}")
+        debug_print(f"Response body: {response.text[:200]}...")
+        
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["amount"], application_data["amount"])
@@ -186,6 +196,7 @@ class FundManagementFixesTest(unittest.TestCase):
         
         # Save application ID for later tests
         self.application_id = data["id"]
+        debug_print(f"Application ID: {self.application_id}")
         print("✅ Finance application created successfully")
 
     def test_07_get_finance_applications_endpoint(self):
