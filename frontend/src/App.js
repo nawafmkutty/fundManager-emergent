@@ -673,14 +673,19 @@ function App() {
     const baseItems = ['dashboard'];
     
     if (user.role === 'member') {
-      return [...baseItems, 'deposits', 'applications', 'repayments', 'guarantor-requests'];
+      return [...baseItems, 'deposits', 'applications', 'payment-schedules', 'repayments', 'guarantor-requests'];
     }
     
     if (isAdmin()) {
-      const adminItems = [...baseItems, 'deposits', 'applications', 'repayments', 'manage-users', 'manage-applications'];
+      const adminItems = [...baseItems, 'deposits', 'applications', 'payment-schedules', 'repayments', 'manage-users', 'manage-applications'];
       
       if (canApprove()) {
         adminItems.push('approval-queue');
+      }
+
+      // Add fund management tabs for Fund Admins and General Admins
+      if (user.role === 'fund_admin' || user.role === 'general_admin') {
+        adminItems.push('disbursements', 'fund-pool');
       }
       
       if (isGeneralAdmin()) {
