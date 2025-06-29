@@ -167,19 +167,22 @@ backend:
 
 frontend:
   - task: "Fix TypeError in getApprovalLevelBadge function"
-    implemented: false
-    working: false
+    implemented: true
+    working: "NA"
     file: "/app/frontend/src/App.js"
-    stuck_count: 1
+    stuck_count: 0
     priority: "high"
     needs_retesting: true
     status_history:
         - working: false
           agent: "main"
           comment: "TypeError occurs when level parameter is undefined on line 479"
+        - working: "NA"
+          agent: "main"
+          comment: "Fixed TypeError by adding proper null/undefined/empty string checks before calling replace() method"
 
   - task: "Implement disbursement UI"
-    implemented: false
+    implemented: true
     working: "NA"
     file: "/app/frontend/src/App.js"
     stuck_count: 0
@@ -189,9 +192,12 @@ frontend:
         - working: "NA"
           agent: "main"
           comment: "Need UI for fund managers to disburse approved applications"
+        - working: "NA"
+          agent: "main"
+          comment: "Added disbursements tab with ready-for-disbursement section and disbursement history table"
 
   - task: "Implement payment schedule UI"
-    implemented: false
+    implemented: true
     working: "NA"
     file: "/app/frontend/src/App.js"
     stuck_count: 0
@@ -201,6 +207,24 @@ frontend:
         - working: "NA"
           agent: "main"
           comment: "Need UI to display payment schedules to users"
+        - working: "NA"
+          agent: "main"
+          comment: "Added payment-schedules tab showing installment details, principal/interest breakdown, and payment status"
+
+  - task: "Implement fund pool UI"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+        - working: "NA"
+          agent: "main"
+          comment: "Need UI to monitor and manage fund pool"
+        - working: "NA"
+          agent: "main"
+          comment: "Added fund-pool tab with overview cards showing deposits, disbursements, repayments, receivables, and available balance"
 
 metadata:
   created_by: "main_agent"
