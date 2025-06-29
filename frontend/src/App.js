@@ -460,7 +460,7 @@ function App() {
   };
 
   const getApprovalLevelBadge = (level) => {
-    if (!level) {
+    if (!level || typeof level !== 'string' || level.trim() === '') {
       return (
         <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">
           NOT SET
