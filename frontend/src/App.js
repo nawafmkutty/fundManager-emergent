@@ -205,6 +205,42 @@ function App() {
     }
   };
 
+  const fetchDisbursements = async () => {
+    try {
+      const data = await api('/api/admin/disbursements');
+      setDisbursements(data);
+    } catch (error) {
+      console.error('Error fetching disbursements:', error);
+    }
+  };
+
+  const fetchReadyForDisbursement = async () => {
+    try {
+      const data = await api('/api/admin/ready-for-disbursement');
+      setReadyForDisbursement(data);
+    } catch (error) {
+      console.error('Error fetching ready for disbursement:', error);
+    }
+  };
+
+  const fetchPaymentSchedules = async () => {
+    try {
+      const data = await api('/api/payment-schedules');
+      setPaymentSchedules(data);
+    } catch (error) {
+      console.error('Error fetching payment schedules:', error);
+    }
+  };
+
+  const fetchFundPool = async () => {
+    try {
+      const data = await api('/api/admin/fund-pool');
+      setFundPool(data);
+    } catch (error) {
+      console.error('Error fetching fund pool:', error);
+    }
+  };
+
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
