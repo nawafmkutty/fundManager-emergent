@@ -28,6 +28,10 @@ function App() {
   const [guarantorRequests, setGuarantorRequests] = useState([]);
   const [approvalQueue, setApprovalQueue] = useState([]);
   const [systemConfig, setSystemConfig] = useState(null);
+  const [disbursements, setDisbursements] = useState([]);
+  const [readyForDisbursement, setReadyForDisbursement] = useState([]);
+  const [paymentSchedules, setPaymentSchedules] = useState([]);
+  const [fundPool, setFundPool] = useState(null);
   const [adminData, setAdminData] = useState({
     users: [],
     allApplications: [],
