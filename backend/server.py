@@ -727,6 +727,15 @@ async def get_general_admin_dashboard(current_user):
     recent_users = list(db.users.find({}, {"password_hash": 0}).sort("created_at", -1).limit(5))
     recent_applications = list(db.finance_applications.find({}).sort([("priority_score", -1), ("created_at", -1)]).limit(5))
     
+    # Ensure all fields exist in recent applications
+    for app in recent_applications:
+        if "priority_score" not in app or app["priority_score"] is None:
+            app["priority_score"] = 0
+        if "previous_finances_count" not in app:
+            app["previous_finances_count"] = 0
+        if "review_notes" not in app:
+            app["review_notes"] = None
+    
     return {
         "role": "general_admin",
         "total_users": total_users,
