@@ -866,13 +866,16 @@ async def get_user_applications(current_user = Depends(get_current_user)):
 @app.get("/api/guarantor-requests")
 async def get_guarantor_requests(current_user = Depends(get_current_user)):
     """Get guarantor requests for current user"""
-    guarantor_requests = list(db.guarantors.find({"guarantor_user_id": current_user["id"]}).sort("created_at", -1))
+    guarantor_requests = list(db.guarantors.find(
+        {"guarantor_user_id": current_user["id"]}, 
+        {"_id": 0}  # Exclude MongoDB _id field
+    ).sort("created_at", -1))
     
     # Add application details to each request
     for request in guarantor_requests:
-        application = db.finance_applications.find_one({"id": request["application_id"]})
+        application = db.finance_applications.find_one({"id": request["application_id"]}, {"_id": 0})
         if application:
-            applicant = db.users.find_one({"id": application["user_id"]}, {"password_hash": 0})
+            applicant = db.users.find_one({"id": application["user_id"]}, {"password_hash": 0, "_id": 0})
             request["application_details"] = {
                 "id": application["id"],
                 "amount": application["amount"],
