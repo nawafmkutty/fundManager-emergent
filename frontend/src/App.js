@@ -1843,6 +1843,90 @@ function App() {
           </div>
         )}
 
+        {/* Deposits Tab */}
+        {activeTab === 'deposits' && (
+          <div className="space-y-6">
+            {/* Add Deposit Form */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4">Add New Deposit</h3>
+              <form onSubmit={handleDeposit} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Amount"
+                    value={depositForm.amount}
+                    onChange={(e) => setDepositForm({...depositForm, amount: e.target.value})}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                  <input
+                    type="text"
+                    placeholder="Description (optional)"
+                    value={depositForm.description}
+                    onChange={(e) => setDepositForm({...depositForm, description: e.target.value})}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="bg-green-600 text-white py-2 px-4 rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
+                >
+                  {loading ? 'Processing...' : 'Add Deposit'}
+                </button>
+              </form>
+            </div>
+
+            {/* Deposits List */}
+            <div className="bg-white rounded-lg shadow">
+              <div className="p-6 border-b">
+                <h3 className="text-lg font-medium text-gray-900">Your Deposits</h3>
+                <button
+                  onClick={fetchDeposits}
+                  className="mt-2 text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"
+                >
+                  Refresh
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {deposits.map((deposit) => (
+                      <tr key={deposit.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {formatCurrency(deposit.amount)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {deposit.description || 'No description'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDate(deposit.created_at)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getStatusBadge(deposit.status)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {deposits.length === 0 && (
+                  <div className="p-6 text-center text-gray-500">
+                    No deposits found. Add your first deposit above!
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
         {/* Other existing tabs continue... */}
       </div>
     </div>
