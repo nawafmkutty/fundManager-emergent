@@ -49,7 +49,7 @@ class FinanceLifecycleTest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.admin_token = data["access_token"]
-        print("✅ Admin login successful")
+        print(f"✅ Admin login successful: {self.admin_token[:10]}...")
         
         # Register test user
         response = requests.post(
@@ -61,6 +61,7 @@ class FinanceLifecycleTest(unittest.TestCase):
         self.user_token = data["access_token"]
         self.user_id = data["user"]["id"]
         print(f"✅ Test user registered: {self.test_user['email']}")
+        print(f"User token: {self.user_token[:10]}...")
         
         # Register guarantor
         response = requests.post(
@@ -72,6 +73,7 @@ class FinanceLifecycleTest(unittest.TestCase):
         self.guarantor_token = data["access_token"]
         self.guarantor_id = data["user"]["id"]
         print(f"✅ Guarantor registered: {self.guarantor_user['email']}")
+        print(f"Guarantor token: {self.guarantor_token[:10]}...")
         
         # Make guarantor eligible by adding deposit
         headers = {"Authorization": f"Bearer {self.guarantor_token}"}
