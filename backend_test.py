@@ -77,7 +77,27 @@ class FundManagementAPITest(unittest.TestCase):
         self.user_id = data["user"]["id"]
         print(f"✅ User registration successful: {self.test_user['email']}")
 
-    def test_03_user_login(self):
+    def test_03_admin_login(self):
+        """Test admin login"""
+        response = requests.post(
+            f"{self.api_url}/api/auth/login",
+            json={
+                "email": "admin@fundmanager.com",
+                "password": "FundAdmin2024!"
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIn("access_token", data)
+        self.assertIn("user", data)
+        self.assertEqual(data["user"]["email"], "admin@fundmanager.com")
+        self.assertEqual(data["user"]["role"], "general_admin")
+        
+        # Save admin token for later tests
+        self.admin_token = data["access_token"]
+        print("✅ Admin login successful")
+
+    def test_04_user_login(self):
         """Test user login"""
         response = requests.post(
             f"{self.api_url}/api/auth/login",
@@ -98,6 +118,75 @@ class FundManagementAPITest(unittest.TestCase):
         # Update token
         self.token = data["access_token"]
         print("✅ User login successful")
+
+    def test_05_setup_guarantor_users(self):
+        """Register and setup guarantor users"""
+        # Register guarantor A
+        response = requests.post(
+            f"{self.api_url}/api/auth/register",
+            json=self.guarantor_user_a
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.guarantor_a_token = data["access_token"]
+        self.guarantor_a_id = data["user"]["id"]
+        print(f"✅ Guarantor A registered: {self.guarantor_user_a['email']}")
+        
+        # Register guarantor B
+        response = requests.post(
+            f"{self.api_url}/api/auth/register",
+            json=self.guarantor_user_b
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.guarantor_b_token = data["access_token"]
+        self.guarantor_b_id = data["user"]["id"]
+        print(f"✅ Guarantor B registered: {self.guarantor_user_b['email']}")
+        
+        # Register guarantor C
+        response = requests.post(
+            f"{self.api_url}/api/auth/register",
+            json=self.guarantor_user_c
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.guarantor_c_token = data["access_token"]
+        self.guarantor_c_id = data["user"]["id"]
+        print(f"✅ Guarantor C registered: {self.guarantor_user_c['email']}")
+        
+        # Add deposits to make guarantors eligible/ineligible
+        # Guarantor A: $600 (eligible)
+        headers = {"Authorization": f"Bearer {self.guarantor_a_token}"}
+        deposit_data = {"amount": 600, "description": "Initial deposit"}
+        response = requests.post(
+            f"{self.api_url}/api/deposits",
+            json=deposit_data,
+            headers=headers
+        )
+        self.assertEqual(response.status_code, 200)
+        print("✅ Guarantor A deposit ($600) successful")
+        
+        # Guarantor B: $300 (not eligible)
+        headers = {"Authorization": f"Bearer {self.guarantor_b_token}"}
+        deposit_data = {"amount": 300, "description": "Initial deposit"}
+        response = requests.post(
+            f"{self.api_url}/api/deposits",
+            json=deposit_data,
+            headers=headers
+        )
+        self.assertEqual(response.status_code, 200)
+        print("✅ Guarantor B deposit ($300) successful")
+        
+        # Guarantor C: $1000 (eligible)
+        headers = {"Authorization": f"Bearer {self.guarantor_c_token}"}
+        deposit_data = {"amount": 1000, "description": "Initial deposit"}
+        response = requests.post(
+            f"{self.api_url}/api/deposits",
+            json=deposit_data,
+            headers=headers
+        )
+        self.assertEqual(response.status_code, 200)
+        print("✅ Guarantor C deposit ($1000) successful")
 
     def test_04_get_user_profile(self):
         """Test getting user profile"""
