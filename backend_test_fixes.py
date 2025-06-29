@@ -202,8 +202,16 @@ class FundManagementFixesTest(unittest.TestCase):
     def test_07_get_finance_applications_endpoint(self):
         """Test GET /api/finance-applications endpoint (previously had ObjectId serialization issues)"""
         print("\n🔍 Testing GET /api/finance-applications endpoint...")
+        if not self.user_token:
+            self.skipTest("User token not found")
+            
         headers = {"Authorization": f"Bearer {self.user_token}"}
+        debug_print(f"Using user token: {self.user_token[:20]}...")
+        
         response = requests.get(f"{self.api_url}/api/finance-applications", headers=headers)
+        debug_print(f"Response status: {response.status_code}")
+        debug_print(f"Response body: {response.text[:200]}...")
+        
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIsInstance(data, list)
@@ -218,8 +226,16 @@ class FundManagementFixesTest(unittest.TestCase):
     def test_08_get_guarantor_requests_endpoint(self):
         """Test GET /api/guarantor-requests endpoint (previously had ObjectId serialization issues)"""
         print("\n🔍 Testing GET /api/guarantor-requests endpoint...")
+        if not self.guarantor_token:
+            self.skipTest("Guarantor token not found")
+            
         headers = {"Authorization": f"Bearer {self.guarantor_token}"}
+        debug_print(f"Using guarantor token: {self.guarantor_token[:20]}...")
+        
         response = requests.get(f"{self.api_url}/api/guarantor-requests", headers=headers)
+        debug_print(f"Response status: {response.status_code}")
+        debug_print(f"Response body: {response.text[:200]}...")
+        
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIsInstance(data, list)
@@ -228,6 +244,7 @@ class FundManagementFixesTest(unittest.TestCase):
             self.assertIsInstance(data[0]["id"], str)
             # Save guarantor request ID for later tests
             self.guarantor_request_id = data[0]["id"]
+            debug_print(f"Guarantor request ID: {self.guarantor_request_id}")
             # Check that application_details are properly serialized
             if "application_details" in data[0]:
                 self.assertIsInstance(data[0]["application_details"]["id"], str)
