@@ -77,6 +77,18 @@ class GuarantorStatus(str, Enum):
     ACCEPTED = "accepted"
     DECLINED = "declined"
 
+class DisbursementStatus(str, Enum):
+    PENDING = "pending"
+    DISBURSED = "disbursed"
+    FAILED = "failed"
+
+class PaymentStatus(str, Enum):
+    SCHEDULED = "scheduled"
+    PENDING = "pending"
+    PAID = "paid"
+    OVERDUE = "overdue"
+    PARTIAL = "partial"
+
 # Pydantic models
 class UserRegister(BaseModel):
     email: EmailStr
