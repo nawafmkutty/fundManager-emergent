@@ -5,7 +5,7 @@ import time
 from datetime import datetime
 
 # Use the public endpoint for testing
-API_URL = "https://dd4fe74c-a1b4-4455-a2ed-10242ff6684b.preview.emergentagent.com"
+API_URL = "https://63acd9f0-ae1e-442e-a051-257150880f67.preview.emergentagent.com"
 
 class FundManagementAPITest(unittest.TestCase):
     def setUp(self):
