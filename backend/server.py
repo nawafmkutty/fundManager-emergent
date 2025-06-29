@@ -293,6 +293,7 @@ def migrate_existing_applications():
 
 # Create admin user on startup
 create_admin_user()
+migrate_existing_applications()
 
 # API Routes
 
