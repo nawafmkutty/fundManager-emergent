@@ -722,6 +722,13 @@ async def create_deposit(deposit: DepositCreate, current_user = Depends(get_curr
     }
     
     db.deposits.insert_one(deposit_doc)
+    
+    # Update fund pool
+    update_fund_pool(
+        deposit_amount=deposit.amount,
+        updated_by=current_user["id"]
+    )
+    
     return Deposit(**deposit_doc)
 
 @app.get("/api/deposits")
