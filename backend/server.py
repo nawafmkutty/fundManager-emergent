@@ -618,6 +618,11 @@ async def get_country_coordinator_dashboard(current_user):
     recent_applications = list(db.finance_applications.aggregate([
         {"$lookup": {"from": "users", "localField": "user_id", "foreignField": "id", "as": "user"}},
         {"$match": {"user.country": country, "status": {"$in": ["pending", "under_review"]}}},
+        {"$addFields": {
+            "priority_score": {"$ifNull": ["$priority_score", 0]},
+            "previous_finances_count": {"$ifNull": ["$previous_finances_count", 0]},
+            "review_notes": {"$ifNull": ["$review_notes", None]}
+        }},
         {"$sort": {"priority_score": -1, "created_at": 1}},  # Higher priority first, then older first
         {"$limit": 5}
     ]))
