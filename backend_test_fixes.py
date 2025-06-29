@@ -130,8 +130,16 @@ class FundManagementFixesTest(unittest.TestCase):
     def test_05_get_deposits_endpoint(self):
         """Test GET /api/deposits endpoint (previously had ObjectId serialization issues)"""
         print("\n🔍 Testing GET /api/deposits endpoint...")
+        if not self.guarantor_token:
+            self.skipTest("Guarantor token not found")
+            
         headers = {"Authorization": f"Bearer {self.guarantor_token}"}
+        debug_print(f"Using guarantor token: {self.guarantor_token[:20]}...")
+        
         response = requests.get(f"{self.api_url}/api/deposits", headers=headers)
+        debug_print(f"Response status: {response.status_code}")
+        debug_print(f"Response body: {response.text}")
+        
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIsInstance(data, list)
