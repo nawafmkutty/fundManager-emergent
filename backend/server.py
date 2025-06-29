@@ -733,7 +733,7 @@ async def create_deposit(deposit: DepositCreate, current_user = Depends(get_curr
 
 @app.get("/api/deposits")
 async def get_user_deposits(current_user = Depends(get_current_user)):
-    deposits = list(db.deposits.find({"user_id": current_user["id"]}).sort("created_at", -1))
+    deposits = list(db.deposits.find({"user_id": current_user["id"]}, {"_id": 0}).sort("created_at", -1))
     return [Deposit(**deposit) for deposit in deposits]
 
 @app.get("/api/guarantors/eligible")
