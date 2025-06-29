@@ -258,6 +258,39 @@ def create_admin_user():
         print(f"   Password: {admin_password}")
         print(f"   Role: {UserRole.GENERAL_ADMIN.value}")
 
+def migrate_existing_applications():
+    """Migrate existing applications to include priority and guarantor fields"""
+    print("🔄 Migrating existing finance applications...")
+    
+    # Update applications missing priority_score
+    applications_without_priority = db.finance_applications.find({
+        "$or": [
+            {"priority_score": {"$exists": False}},
+            {"previous_finances_count": {"$exists": False}},
+            {"review_notes": {"$exists": False}}
+        ]
+    })
+    
+    for app in applications_without_priority:
+        # Calculate priority for existing applications
+        priority_score, previous_finances_count = calculate_priority_score(app["user_id"])
+        
+        update_data = {}
+        if "priority_score" not in app or app.get("priority_score") is None:
+            update_data["priority_score"] = priority_score
+        if "previous_finances_count" not in app:
+            update_data["previous_finances_count"] = previous_finances_count
+        if "review_notes" not in app:
+            update_data["review_notes"] = None
+        
+        if update_data:
+            db.finance_applications.update_one(
+                {"id": app["id"]},
+                {"$set": update_data}
+            )
+    
+    print("✅ Migration completed for finance applications")
+
 # Create admin user on startup
 create_admin_user()
 
