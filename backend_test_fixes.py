@@ -2,10 +2,18 @@ import requests
 import unittest
 import uuid
 import time
+import json
 from datetime import datetime
 
 # Use the public endpoint for testing
 API_URL = "https://63acd9f0-ae1e-442e-a051-257150880f67.preview.emergentagent.com"
+
+# Enable debug mode to print detailed request/response info
+DEBUG = True
+
+def debug_print(message):
+    if DEBUG:
+        print(f"DEBUG: {message}")
 
 class FundManagementFixesTest(unittest.TestCase):
     def setUp(self):
