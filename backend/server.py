@@ -217,6 +217,49 @@ class Repayment(BaseModel):
     status: RepaymentStatus
     installment_number: int
 
+class Disbursement(BaseModel):
+    id: str
+    application_id: str
+    user_id: str
+    approved_amount: float
+    disbursed_amount: float
+    disbursement_date: datetime
+    status: DisbursementStatus
+    disbursed_by: str
+    disbursed_by_name: str
+    notes: Optional[str] = Field(default=None)
+    reference_number: Optional[str] = Field(default=None)
+
+class PaymentSchedule(BaseModel):
+    id: str
+    application_id: str
+    disbursement_id: str
+    user_id: str
+    installment_number: int
+    amount: float
+    principal_amount: float
+    interest_amount: float
+    due_date: datetime
+    status: PaymentStatus
+    paid_date: Optional[datetime] = Field(default=None)
+    paid_amount: Optional[float] = Field(default=None)
+    late_fee: Optional[float] = Field(default=0.0)
+
+class FundPool(BaseModel):
+    id: str = Field(default="fund_pool")
+    total_deposits: float = Field(default=0.0)
+    total_disbursed: float = Field(default=0.0)
+    total_repaid: float = Field(default=0.0)
+    available_balance: float = Field(default=0.0)
+    total_receivables: float = Field(default=0.0)
+    last_updated: datetime = Field(default_factory=datetime.utcnow)
+    updated_by: Optional[str] = Field(default=None)
+
+class DisbursementRequest(BaseModel):
+    notes: Optional[str] = Field(default=None)
+    reference_number: Optional[str] = Field(default=None)
+    disbursement_method: Optional[str] = Field(default="bank_transfer")
+
 # Role permissions
 ROLE_PERMISSIONS = {
     UserRole.MEMBER: ["view_own_data", "create_deposits", "create_applications"],
