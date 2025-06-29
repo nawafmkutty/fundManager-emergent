@@ -1123,6 +1123,204 @@ async def get_approval_queue(current_user = Depends(require_role([UserRole.COUNT
     
     return [FinanceApplication(**app) for app in applications]
 
+# Disbursement and Payment Schedule endpoints
+@app.post("/api/admin/applications/{application_id}/disburse")
+async def disburse_application(
+    application_id: str,
+    disbursement_request: DisbursementRequest,
+    current_user = Depends(require_role([UserRole.FUND_ADMIN, UserRole.GENERAL_ADMIN]))
+):
+    """Disburse funds for an approved application"""
+    
+    # Find the application
+    application = db.finance_applications.find_one({"id": application_id})
+    if not application:
+        raise HTTPException(status_code=404, detail="Application not found")
+    
+    # Check if application is approved
+    if application["status"] != "approved":
+        raise HTTPException(status_code=400, detail="Application is not approved for disbursement")
+    
+    # Check if already disbursed
+    existing_disbursement = db.disbursements.find_one({"application_id": application_id})
+    if existing_disbursement:
+        raise HTTPException(status_code=400, detail="Application has already been disbursed")
+    
+    # Check guarantor acceptance
+    guarantors_accepted, message = check_guarantor_acceptance(application_id)
+    if not guarantors_accepted:
+        raise HTTPException(status_code=400, detail=f"Cannot disburse: {message}")
+    
+    # Get approved amount (use approved_amount if set, otherwise use requested amount)
+    disbursement_amount = application.get("approved_amount", application["amount"])
+    
+    # Check fund availability
+    fund_pool = get_fund_pool()
+    if fund_pool.available_balance < disbursement_amount:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Insufficient funds. Available: {fund_pool.available_balance}, Required: {disbursement_amount}"
+        )
+    
+    # Create disbursement record
+    disbursement_id = str(uuid.uuid4())
+    disbursement_doc = {
+        "id": disbursement_id,
+        "application_id": application_id,
+        "user_id": application["user_id"],
+        "approved_amount": disbursement_amount,
+        "disbursed_amount": disbursement_amount,
+        "disbursement_date": datetime.utcnow(),
+        "status": DisbursementStatus.DISBURSED.value,
+        "disbursed_by": current_user["id"],
+        "disbursed_by_name": current_user["full_name"],
+        "notes": disbursement_request.notes,
+        "reference_number": disbursement_request.reference_number or f"DISB-{disbursement_id[:8].upper()}"
+    }
+    
+    db.disbursements.insert_one(disbursement_doc)
+    
+    # Update application status
+    db.finance_applications.update_one(
+        {"id": application_id},
+        {"$set": {"status": ApplicationStatus.DISBURSED.value}}
+    )
+    
+    # Update fund pool
+    update_fund_pool(
+        disbursement_amount=disbursement_amount,
+        updated_by=current_user["id"]
+    )
+    
+    # Generate payment schedule
+    payment_schedules = generate_payment_schedule(
+        application_id=application_id,
+        disbursement_id=disbursement_id,
+        user_id=application["user_id"],
+        principal_amount=disbursement_amount,
+        duration_months=application["requested_duration_months"]
+    )
+    
+    return {
+        "disbursement": Disbursement(**disbursement_doc),
+        "payment_schedules": payment_schedules,
+        "fund_pool": get_fund_pool()
+    }
+
+@app.get("/api/admin/disbursements")
+async def get_disbursements(current_user = Depends(require_role([UserRole.FUND_ADMIN, UserRole.GENERAL_ADMIN]))):
+    """Get all disbursements"""
+    disbursements = list(db.disbursements.find().sort("disbursement_date", -1))
+    
+    # Add application details
+    for disbursement in disbursements:
+        application = db.finance_applications.find_one({"id": disbursement["application_id"]})
+        if application:
+            applicant = db.users.find_one({"id": application["user_id"]}, {"password_hash": 0})
+            disbursement["application_details"] = {
+                "purpose": application["purpose"],
+                "applicant_name": applicant["full_name"] if applicant else "Unknown"
+            }
+    
+    return [Disbursement(**d) for d in disbursements]
+
+@app.get("/api/admin/ready-for-disbursement")
+async def get_ready_for_disbursement(current_user = Depends(require_role([UserRole.FUND_ADMIN, UserRole.GENERAL_ADMIN]))):
+    """Get applications ready for disbursement"""
+    
+    # Find approved applications that haven't been disbursed yet
+    approved_applications = list(db.finance_applications.find({"status": "approved"}))
+    ready_applications = []
+    
+    for app in approved_applications:
+        # Check if already disbursed
+        existing_disbursement = db.disbursements.find_one({"application_id": app["id"]})
+        if existing_disbursement:
+            continue
+        
+        # Check guarantor acceptance
+        guarantors_accepted, message = check_guarantor_acceptance(app["id"])
+        
+        # Add application info
+        applicant = db.users.find_one({"id": app["user_id"]}, {"password_hash": 0})
+        app["applicant_name"] = applicant["full_name"] if applicant else "Unknown"
+        app["applicant_country"] = applicant["country"] if applicant else "Unknown"
+        app["guarantors_status"] = "All Accepted" if guarantors_accepted else message
+        app["ready_for_disbursement"] = guarantors_accepted
+        app["disbursement_amount"] = app.get("approved_amount", app["amount"])
+        
+        ready_applications.append(app)
+    
+    return ready_applications
+
+@app.get("/api/payment-schedules")
+async def get_payment_schedules(current_user = Depends(get_current_user)):
+    """Get payment schedules for current user"""
+    schedules = list(db.payment_schedules.find({"user_id": current_user["id"]}).sort("due_date", 1))
+    
+    # Add application details
+    for schedule in schedules:
+        application = db.finance_applications.find_one({"id": schedule["application_id"]})
+        if application:
+            schedule["application_purpose"] = application["purpose"]
+    
+    return [PaymentSchedule(**s) for s in schedules]
+
+@app.get("/api/admin/fund-pool")
+async def get_fund_pool_status(current_user = Depends(require_role([UserRole.FUND_ADMIN, UserRole.GENERAL_ADMIN]))):
+    """Get current fund pool status"""
+    return get_fund_pool()
+
+@app.post("/api/admin/fund-pool/recalculate")
+async def recalculate_fund_pool(current_user = Depends(require_role([UserRole.GENERAL_ADMIN]))):
+    """Recalculate fund pool based on actual data"""
+    
+    # Calculate total deposits
+    total_deposits_result = db.deposits.aggregate([
+        {"$match": {"status": "completed"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ])
+    total_deposits_list = list(total_deposits_result)
+    total_deposits = total_deposits_list[0]["total"] if total_deposits_list else 0
+    
+    # Calculate total disbursed
+    total_disbursed_result = db.disbursements.aggregate([
+        {"$match": {"status": "disbursed"}},
+        {"$group": {"_id": None, "total": {"$sum": "$disbursed_amount"}}}
+    ])
+    total_disbursed_list = list(total_disbursed_result)
+    total_disbursed = total_disbursed_list[0]["total"] if total_disbursed_list else 0
+    
+    # Calculate total repaid
+    total_repaid_result = db.payment_schedules.aggregate([
+        {"$match": {"status": "paid"}},
+        {"$group": {"_id": None, "total": {"$sum": "$paid_amount"}}}
+    ])
+    total_repaid_list = list(total_repaid_result)
+    total_repaid = total_repaid_list[0]["total"] if total_repaid_list else 0
+    
+    # Update fund pool with calculated values
+    available_balance = total_deposits + total_repaid - total_disbursed
+    total_receivables = total_disbursed - total_repaid
+    
+    update_data = {
+        "total_deposits": total_deposits,
+        "total_disbursed": total_disbursed,
+        "total_repaid": total_repaid,
+        "available_balance": available_balance,
+        "total_receivables": total_receivables,
+        "last_updated": datetime.utcnow(),
+        "updated_by": current_user["id"]
+    }
+    
+    db.fund_pool.update_one(
+        {"id": "fund_pool"},
+        {"$set": update_data},
+        upsert=True
+    )
+    
+    return get_fund_pool()
+
 # Dashboard functions (updated with approval workflow data)
 async def get_member_dashboard(current_user):
     config = get_system_config()
