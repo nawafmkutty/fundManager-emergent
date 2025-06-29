@@ -1266,11 +1266,11 @@ async def get_ready_for_disbursement(current_user = Depends(require_role([UserRo
 @app.get("/api/payment-schedules")
 async def get_payment_schedules(current_user = Depends(get_current_user)):
     """Get payment schedules for current user"""
-    schedules = list(db.payment_schedules.find({"user_id": current_user["id"]}).sort("due_date", 1))
+    schedules = list(db.payment_schedules.find({"user_id": current_user["id"]}, {"_id": 0}).sort("due_date", 1))
     
     # Add application details
     for schedule in schedules:
-        application = db.finance_applications.find_one({"id": schedule["application_id"]})
+        application = db.finance_applications.find_one({"id": schedule["application_id"]}, {"_id": 0})
         if application:
             schedule["application_purpose"] = application["purpose"]
     
