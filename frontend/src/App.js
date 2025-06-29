@@ -1992,25 +1992,83 @@ function App() {
             </div>
           </div>
         )}
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {formatDate(deposit.created_at)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {getStatusBadge(deposit.status)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {deposits.length === 0 && (
+
+        {/* Guarantor Requests Tab */}
+        {activeTab === 'guarantor-requests' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow">
+              <div className="p-6 border-b">
+                <h3 className="text-lg font-medium text-gray-900">Guarantor Requests</h3>
+                <p className="text-sm text-gray-600 mt-1">Applications where you've been requested as a guarantor</p>
+                <button
+                  onClick={fetchGuarantorRequests}
+                  className="mt-2 text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"
+                >
+                  Refresh
+                </button>
+              </div>
+              <div className="space-y-4 p-6">
+                {guarantorRequests.map((request) => (
+                  <div key={request.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <h4 className="text-lg font-medium text-gray-900">
+                            {formatCurrency(request.guaranteed_amount)}
+                          </h4>
+                          {getStatusBadge(request.status)}
+                        </div>
+                        {request.application_details && (
+                          <div className="text-sm text-gray-600 space-y-1">
+                            <p><strong>Applicant:</strong> {request.application_details.applicant_name}</p>
+                            <p><strong>Purpose:</strong> {request.application_details.purpose}</p>
+                            <p><strong>Amount:</strong> {formatCurrency(request.application_details.amount)}</p>
+                            <p><strong>Duration:</strong> {request.application_details.requested_duration_months} months</p>
+                            {request.application_details.description && (
+                              <p><strong>Description:</strong> {request.application_details.description}</p>
+                            )}
+                          </div>
+                        )}
+                        <p className="text-xs text-gray-500 mt-2">
+                          Requested: {formatDate(request.created_at)}
+                        </p>
+                      </div>
+                      <div className="ml-4">
+                        {request.status === 'pending' && (
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleGuarantorResponse(request.id, 'accepted')}
+                              className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700"
+                            >
+                              Accept
+                            </button>
+                            <button
+                              onClick={() => handleGuarantorResponse(request.id, 'declined')}
+                              className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        )}
+                        {request.status !== 'pending' && (
+                          <div className="text-xs text-gray-500">
+                            {request.responded_at && `Responded: ${formatDate(request.responded_at)}`}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {guarantorRequests.length === 0 && (
                   <div className="p-6 text-center text-gray-500">
-                    No deposits found. Add your first deposit above!
+                    No guarantor requests found. You'll see requests here when someone asks you to be their guarantor.
                   </div>
                 )}
               </div>
             </div>
           </div>
         )}
+
         {/* Other existing tabs continue... */}
       </div>
     </div>
