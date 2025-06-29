@@ -75,9 +75,12 @@ class FundManagementAPITest(unittest.TestCase):
         # Save token and user_id for subsequent tests
         self.token = data["access_token"]
         self.user_id = data["user"]["id"]
-        print(f"✅ User registration successful: {self.test_user['email']}")
         
-        # Print token for debugging
+        # Verify token is set properly
+        self.assertIsNotNone(self.token, "Token should not be None")
+        self.assertTrue(len(self.token) > 10, "Token should be a valid JWT")
+        
+        print(f"✅ User registration successful: {self.test_user['email']}")
         print(f"Token: {self.token[:10]}...")
         print(f"User ID: {self.user_id}")
 
