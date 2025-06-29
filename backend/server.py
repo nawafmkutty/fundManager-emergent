@@ -134,12 +134,12 @@ class FinanceApplication(BaseModel):
     requested_duration_months: int
     description: Optional[str]
     status: ApplicationStatus
-    priority_score: float
-    previous_finances_count: int
+    priority_score: Optional[float] = Field(default=0)
+    previous_finances_count: Optional[int] = Field(default=0)
     created_at: datetime
     reviewed_at: Optional[datetime]
     reviewed_by: Optional[str]
-    review_notes: Optional[str]
+    review_notes: Optional[str] = Field(default=None)
     guarantors: List[GuarantorResponse] = Field(default=[])
 
 class Repayment(BaseModel):
