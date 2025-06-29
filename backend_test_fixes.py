@@ -51,6 +51,9 @@ class FundManagementFixesTest(unittest.TestCase):
             f"{self.api_url}/api/auth/login",
             json=self.admin_credentials
         )
+        debug_print(f"Response status: {response.status_code}")
+        debug_print(f"Response body: {response.text[:200]}...")
+        
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("access_token", data)
@@ -60,6 +63,7 @@ class FundManagementFixesTest(unittest.TestCase):
         
         # Save admin token for later tests
         self.admin_token = data["access_token"]
+        debug_print(f"Admin token: {self.admin_token[:20]}...")
         print("✅ Admin login successful")
 
     def test_02_user_registration(self):
@@ -69,6 +73,9 @@ class FundManagementFixesTest(unittest.TestCase):
             f"{self.api_url}/api/auth/register",
             json=self.test_user
         )
+        debug_print(f"Response status: {response.status_code}")
+        debug_print(f"Response body: {response.text[:200]}...")
+        
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("access_token", data)
@@ -78,6 +85,8 @@ class FundManagementFixesTest(unittest.TestCase):
         # Save token and user_id for subsequent tests
         self.user_token = data["access_token"]
         self.user_id = data["user"]["id"]
+        debug_print(f"User token: {self.user_token[:20]}...")
+        debug_print(f"User ID: {self.user_id}")
         print(f"✅ User registration successful: {self.test_user['email']}")
 
     def test_03_guarantor_registration(self):
@@ -87,6 +96,9 @@ class FundManagementFixesTest(unittest.TestCase):
             f"{self.api_url}/api/auth/register",
             json=self.guarantor_user
         )
+        debug_print(f"Response status: {response.status_code}")
+        debug_print(f"Response body: {response.text[:200]}...")
+        
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("access_token", data)
@@ -96,6 +108,8 @@ class FundManagementFixesTest(unittest.TestCase):
         # Save token and user_id for subsequent tests
         self.guarantor_token = data["access_token"]
         self.guarantor_id = data["user"]["id"]
+        debug_print(f"Guarantor token: {self.guarantor_token[:20]}...")
+        debug_print(f"Guarantor ID: {self.guarantor_id}")
         print(f"✅ Guarantor registration successful: {self.guarantor_user['email']}")
 
     def test_04_create_guarantor_deposit(self):
