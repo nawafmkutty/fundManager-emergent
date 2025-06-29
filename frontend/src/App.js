@@ -413,6 +413,52 @@ function App() {
     }
   };
 
+  const handleDisbursement = async (applicationId, notes = '', referenceNumber = '') => {
+    if (!confirm('Are you sure you want to disburse funds for this application?')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await api(`/api/admin/applications/${applicationId}/disburse`, {
+        method: 'POST',
+        body: { 
+          notes,
+          reference_number: referenceNumber,
+          disbursement_method: 'bank_transfer'
+        }
+      });
+      
+      fetchReadyForDisbursement();
+      fetchDisbursements();
+      fetchFundPool();
+      fetchDashboard();
+      alert('Funds disbursed successfully!');
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const recalculateFundPool = async () => {
+    if (!confirm('This will recalculate the fund pool based on actual transaction data. Continue?')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await api('/api/admin/fund-pool/recalculate', { method: 'POST' });
+      fetchFundPool();
+      fetchDashboard();
+      alert('Fund pool recalculated successfully!');
+    } catch (error) {
+      alert(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const isAdmin = () => {
     return user && ['country_coordinator', 'fund_admin', 'general_admin'].includes(user.role);
   };
