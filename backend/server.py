@@ -851,14 +851,14 @@ async def create_finance_application(application: FinanceApplicationCreate, curr
 
 @app.get("/api/finance-applications")
 async def get_user_applications(current_user = Depends(get_current_user)):
-    applications = list(db.finance_applications.find({"user_id": current_user["id"]}).sort("created_at", -1))
+    applications = list(db.finance_applications.find({"user_id": current_user["id"]}, {"_id": 0}).sort("created_at", -1))
     
     # Add guarantors and approval history to each application
     for app in applications:
-        guarantors = list(db.guarantors.find({"application_id": app["id"]}))
+        guarantors = list(db.guarantors.find({"application_id": app["id"]}, {"_id": 0}))
         app["guarantors"] = [GuarantorResponse(**g) for g in guarantors]
         
-        approval_history = list(db.approval_history.find({"application_id": app["id"]}).sort("created_at", 1))
+        approval_history = list(db.approval_history.find({"application_id": app["id"]}, {"_id": 0}).sort("created_at", 1))
         app["approval_history"] = [ApprovalHistory(**h) for h in approval_history]
     
     return [FinanceApplication(**app) for app in applications]
