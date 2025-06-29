@@ -1069,6 +1069,330 @@ function App() {
           </div>
         )}
 
+        {/* Payment Schedules Tab */}
+        {activeTab === 'payment-schedules' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow">
+              <div className="p-6 border-b">
+                <h3 className="text-lg font-medium text-gray-900">Payment Schedules</h3>
+                <p className="text-sm text-gray-600 mt-1">Your loan repayment schedule</p>
+                <button
+                  onClick={fetchPaymentSchedules}
+                  className="mt-2 text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"
+                >
+                  Refresh
+                </button>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Application</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Installment</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {paymentSchedules.map((schedule) => (
+                      <tr key={schedule.id}>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{schedule.application_purpose || 'N/A'}</div>
+                          <div className="text-xs text-gray-500">Principal: {formatCurrency(schedule.principal_amount)}</div>
+                          <div className="text-xs text-gray-500">Interest: {formatCurrency(schedule.interest_amount)}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          #{schedule.installment_number}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">{formatCurrency(schedule.amount)}</div>
+                          {schedule.late_fee > 0 && (
+                            <div className="text-xs text-red-600">Late fee: {formatCurrency(schedule.late_fee)}</div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {formatDate(schedule.due_date)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getStatusBadge(schedule.status)}
+                          {schedule.paid_date && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              Paid: {formatDate(schedule.paid_date)}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {paymentSchedules.length === 0 && (
+                  <div className="p-6 text-center text-gray-500">
+                    No payment schedules found. Payment schedules are created after loan disbursement.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Disbursements Tab - Fund Admins and General Admins only */}
+        {activeTab === 'disbursements' && (user.role === 'fund_admin' || user.role === 'general_admin') && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow">
+              <div className="p-6 border-b">
+                <h3 className="text-lg font-medium text-gray-900">Fund Disbursements</h3>
+                <p className="text-sm text-gray-600 mt-1">Manage fund disbursements for approved applications</p>
+                <div className="flex space-x-3 mt-3">
+                  <button
+                    onClick={fetchReadyForDisbursement}
+                    className="text-sm bg-green-100 text-green-700 px-3 py-1 rounded hover:bg-green-200"
+                  >
+                    Load Ready for Disbursement
+                  </button>
+                  <button
+                    onClick={fetchDisbursements}
+                    className="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"
+                  >
+                    Refresh Disbursements
+                  </button>
+                </div>
+              </div>
+
+              {/* Ready for Disbursement Section */}
+              <div className="p-6 border-b">
+                <h4 className="text-md font-medium text-gray-900 mb-4">Ready for Disbursement</h4>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applicant</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Purpose</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Guarantors</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {readyForDisbursement.map((app) => (
+                        <tr key={app.id} className={app.ready_for_disbursement ? '' : 'bg-gray-50'}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{app.applicant_name}</div>
+                            <div className="text-sm text-gray-500">{app.applicant_country}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{formatCurrency(app.disbursement_amount)}</div>
+                            <div className="text-xs text-gray-500">{app.requested_duration_months} months</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {app.purpose}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{app.guarantors_status}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {app.ready_for_disbursement ? (
+                              <button
+                                onClick={() => {
+                                  const notes = prompt('Enter disbursement notes (optional):');
+                                  const refNumber = prompt('Enter reference number (optional):');
+                                  handleDisbursement(app.id, notes || '', refNumber || '');
+                                }}
+                                className="text-green-600 hover:text-green-800 text-xs bg-green-100 px-2 py-1 rounded"
+                              >
+                                Disburse Funds
+                              </button>
+                            ) : (
+                              <span className="text-red-600 text-xs">{app.guarantors_status}</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {readyForDisbursement.length === 0 && (
+                    <div className="p-6 text-center text-gray-500">
+                      No applications ready for disbursement. Applications need to be approved and all guarantors must accept.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Disbursement History */}
+              <div className="p-6">
+                <h4 className="text-md font-medium text-gray-900 mb-4">Disbursement History</h4>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applicant</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {disbursements.map((disbursement) => (
+                        <tr key={disbursement.id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-gray-900">{disbursement.reference_number}</div>
+                            <div className="text-xs text-gray-500">By: {disbursement.disbursed_by_name}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{disbursement.application_details?.applicant_name || 'N/A'}</div>
+                            <div className="text-xs text-gray-500">{disbursement.application_details?.purpose || 'N/A'}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {formatCurrency(disbursement.disbursed_amount)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {formatDate(disbursement.disbursement_date)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {getStatusBadge(disbursement.status)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {disbursements.length === 0 && (
+                    <div className="p-6 text-center text-gray-500">
+                      No disbursements found.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Fund Pool Tab - Fund Admins and General Admins only */}
+        {activeTab === 'fund-pool' && (user.role === 'fund_admin' || user.role === 'general_admin') && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-lg font-medium text-gray-900">Fund Pool Management</h3>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={fetchFundPool}
+                    className="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200"
+                  >
+                    Refresh
+                  </button>
+                  {user.role === 'general_admin' && (
+                    <button
+                      onClick={recalculateFundPool}
+                      className="text-sm bg-yellow-100 text-yellow-700 px-3 py-1 rounded hover:bg-yellow-200"
+                    >
+                      Recalculate
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {fundPool && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="bg-green-50 p-6 rounded-lg">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-green-100 rounded-md">
+                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                        </svg>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-green-700">Total Deposits</p>
+                        <p className="text-2xl font-semibold text-green-900">{formatCurrency(fundPool.total_deposits)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 p-6 rounded-lg">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-blue-100 rounded-md">
+                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-blue-700">Available Balance</p>
+                        <p className="text-2xl font-semibold text-blue-900">{formatCurrency(fundPool.available_balance)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-red-50 p-6 rounded-lg">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-red-100 rounded-md">
+                        <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                        </svg>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-red-700">Total Disbursed</p>
+                        <p className="text-2xl font-semibold text-red-900">{formatCurrency(fundPool.total_disbursed)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-purple-50 p-6 rounded-lg">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-purple-100 rounded-md">
+                        <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-purple-700">Total Repaid</p>
+                        <p className="text-2xl font-semibold text-purple-900">{formatCurrency(fundPool.total_repaid)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-yellow-50 p-6 rounded-lg">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-yellow-100 rounded-md">
+                        <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-yellow-700">Total Receivables</p>
+                        <p className="text-2xl font-semibold text-yellow-900">{formatCurrency(fundPool.total_receivables)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-gray-50 p-6 rounded-lg">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-gray-100 rounded-md">
+                        <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-700">Last Updated</p>
+                        <p className="text-sm font-semibold text-gray-900">{formatDate(fundPool.last_updated)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-6 bg-gray-100 p-4 rounded-lg">
+                <h4 className="text-sm font-medium text-gray-900 mb-2">Fund Pool Formula</h4>
+                <div className="text-xs text-gray-600">
+                  <p><strong>Available Balance:</strong> Total Deposits + Total Repaid - Total Disbursed</p>
+                  <p><strong>Total Receivables:</strong> Total Disbursed - Total Repaid</p>
+                  <p className="mt-2 text-gray-500">This represents the outstanding loan amounts that are expected to be repaid.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Other existing tabs continue... */}
+
         {/* Approval Queue Tab */}
         {activeTab === 'approval-queue' && canApprove() && (
           <div className="space-y-6">
