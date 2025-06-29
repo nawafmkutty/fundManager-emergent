@@ -390,6 +390,136 @@ def check_guarantor_eligibility(user_id: str) -> tuple[bool, float]:
     is_eligible = total_deposits >= minimum_deposit_for_guarantor
     return is_eligible, total_deposits
 
+def get_fund_pool() -> FundPool:
+    """Get or create fund pool record"""
+    fund_pool = db.fund_pool.find_one({"id": "fund_pool"})
+    if not fund_pool:
+        # Create initial fund pool
+        fund_pool_doc = {
+            "id": "fund_pool",
+            "total_deposits": 0.0,
+            "total_disbursed": 0.0,
+            "total_repaid": 0.0,
+            "available_balance": 0.0,
+            "total_receivables": 0.0,
+            "last_updated": datetime.utcnow(),
+            "updated_by": None
+        }
+        db.fund_pool.insert_one(fund_pool_doc)
+        fund_pool = fund_pool_doc
+    
+    return FundPool(**fund_pool)
+
+def update_fund_pool(
+    deposit_amount: float = 0.0,
+    disbursement_amount: float = 0.0,
+    repayment_amount: float = 0.0,
+    updated_by: str = None
+):
+    """Update fund pool balances"""
+    current_pool = get_fund_pool()
+    
+    new_total_deposits = current_pool.total_deposits + deposit_amount
+    new_total_disbursed = current_pool.total_disbursed + disbursement_amount
+    new_total_repaid = current_pool.total_repaid + repayment_amount
+    
+    # Calculate available balance and receivables
+    new_available_balance = new_total_deposits + new_total_repaid - new_total_disbursed
+    new_total_receivables = new_total_disbursed - new_total_repaid
+    
+    update_data = {
+        "total_deposits": new_total_deposits,
+        "total_disbursed": new_total_disbursed,
+        "total_repaid": new_total_repaid,
+        "available_balance": new_available_balance,
+        "total_receivables": new_total_receivables,
+        "last_updated": datetime.utcnow(),
+        "updated_by": updated_by
+    }
+    
+    db.fund_pool.update_one(
+        {"id": "fund_pool"},
+        {"$set": update_data},
+        upsert=True
+    )
+    
+    return get_fund_pool()
+
+def generate_payment_schedule(
+    application_id: str,
+    disbursement_id: str,
+    user_id: str,
+    principal_amount: float,
+    duration_months: int,
+    interest_rate: float = 0.05  # 5% annual interest rate
+) -> List[PaymentSchedule]:
+    """Generate payment schedule for a disbursed loan"""
+    
+    # Calculate monthly payment using standard loan formula
+    monthly_interest_rate = interest_rate / 12
+    if monthly_interest_rate > 0:
+        monthly_payment = principal_amount * (monthly_interest_rate * (1 + monthly_interest_rate) ** duration_months) / ((1 + monthly_interest_rate) ** duration_months - 1)
+    else:
+        monthly_payment = principal_amount / duration_months
+    
+    payment_schedules = []
+    remaining_principal = principal_amount
+    
+    for month in range(1, duration_months + 1):
+        # Calculate interest for this month
+        interest_amount = remaining_principal * monthly_interest_rate
+        principal_amount_this_month = monthly_payment - interest_amount
+        
+        # Adjust for last payment to handle rounding
+        if month == duration_months:
+            principal_amount_this_month = remaining_principal
+            monthly_payment = principal_amount_this_month + interest_amount
+        
+        # Calculate due date (first payment due 30 days after disbursement)
+        due_date = datetime.utcnow() + timedelta(days=30 * month)
+        
+        schedule = {
+            "id": str(uuid.uuid4()),
+            "application_id": application_id,
+            "disbursement_id": disbursement_id,
+            "user_id": user_id,
+            "installment_number": month,
+            "amount": round(monthly_payment, 2),
+            "principal_amount": round(principal_amount_this_month, 2),
+            "interest_amount": round(interest_amount, 2),
+            "due_date": due_date,
+            "status": PaymentStatus.SCHEDULED.value,
+            "paid_date": None,
+            "paid_amount": None,
+            "late_fee": 0.0
+        }
+        
+        payment_schedules.append(PaymentSchedule(**schedule))
+        remaining_principal -= principal_amount_this_month
+        
+        # Insert into database
+        db.payment_schedules.insert_one(schedule)
+    
+    return payment_schedules
+
+def check_guarantor_acceptance(application_id: str) -> tuple[bool, str]:
+    """Check if all guarantors have accepted the application"""
+    guarantors = list(db.guarantors.find({"application_id": application_id}))
+    
+    if not guarantors:
+        return True, "No guarantors required"
+    
+    pending_guarantors = [g for g in guarantors if g["status"] == "pending"]
+    declined_guarantors = [g for g in guarantors if g["status"] == "declined"]
+    
+    if declined_guarantors:
+        return False, f"Guarantor(s) declined: {', '.join([g['guarantor_name'] for g in declined_guarantors])}"
+    
+    if pending_guarantors:
+        return False, f"Waiting for acceptance from: {', '.join([g['guarantor_name'] for g in pending_guarantors])}"
+    
+    return True, "All guarantors accepted"
+
 def create_admin_user():
     """Create default admin user if not exists"""
     admin_email = "admin@fundmanager.com"
