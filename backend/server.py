@@ -16,8 +16,8 @@ MONGO_URL = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
 DB_NAME = os.environ.get('DB_NAME', 'fund_management')
 SECRET_KEY = os.environ.get('SECRET_KEY', 'your-secret-key-change-in-production')
 
-# Business Rules Configuration
-MINIMUM_DEPOSIT_FOR_GUARANTOR = 500.0  # Minimum deposit amount to be eligible as guarantor
+# Default Business Rules Configuration
+DEFAULT_MINIMUM_DEPOSIT_FOR_GUARANTOR = 500.0  # Default minimum deposit amount to be eligible as guarantor
 PRIORITY_WEIGHT = 100  # Base priority score, higher = more priority
 
 # MongoDB setup
@@ -97,6 +97,21 @@ class UserRoleUpdate(BaseModel):
     user_id: str
     new_role: UserRole
 
+class SystemConfigUpdate(BaseModel):
+    minimum_deposit_for_guarantor: Optional[float] = Field(None, gt=0)
+    priority_weight: Optional[float] = Field(None, gt=0)
+    max_loan_amount: Optional[float] = Field(None, gt=0)
+    max_loan_duration_months: Optional[int] = Field(None, gt=0)
+
+class SystemConfig(BaseModel):
+    id: str = Field(default="system_config")
+    minimum_deposit_for_guarantor: float = Field(default=DEFAULT_MINIMUM_DEPOSIT_FOR_GUARANTOR)
+    priority_weight: float = Field(default=PRIORITY_WEIGHT)
+    max_loan_amount: Optional[float] = Field(default=None)
+    max_loan_duration_months: Optional[int] = Field(default=None)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_by: Optional[str] = Field(default=None)
+
 class GuarantorResponse(BaseModel):
     id: str
     application_id: str
@@ -161,6 +176,25 @@ ROLE_PERMISSIONS = {
 }
 
 # Utility functions
+def get_system_config():
+    """Get current system configuration"""
+    config = db.system_config.find_one({"id": "system_config"})
+    if not config:
+        # Create default configuration
+        default_config = {
+            "id": "system_config",
+            "minimum_deposit_for_guarantor": DEFAULT_MINIMUM_DEPOSIT_FOR_GUARANTOR,
+            "priority_weight": PRIORITY_WEIGHT,
+            "max_loan_amount": None,
+            "max_loan_duration_months": None,
+            "updated_at": datetime.utcnow(),
+            "updated_by": None
+        }
+        db.system_config.insert_one(default_config)
+        config = default_config
+    
+    return SystemConfig(**config)
+
 def create_access_token(data: dict):
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(hours=24)
@@ -204,13 +238,17 @@ def calculate_priority_score(user_id: str) -> tuple[float, int]:
     # Count previous finance applications for this user
     previous_finances_count = db.finance_applications.count_documents({"user_id": user_id})
     
+    # Get current system configuration
+    config = get_system_config()
+    priority_weight = config.priority_weight
+    
     # Calculate priority score: higher score = higher priority
     # New applicants (0 previous) get max priority
     if previous_finances_count == 0:
-        priority_score = PRIORITY_WEIGHT
+        priority_score = priority_weight
     else:
         # Decreasing priority with more previous finances
-        priority_score = max(1, PRIORITY_WEIGHT - (previous_finances_count * 10))
+        priority_score = max(1, priority_weight - (previous_finances_count * 10))
     
     return priority_score, previous_finances_count
 
@@ -219,6 +257,10 @@ def check_guarantor_eligibility(user_id: str) -> tuple[bool, float]:
     Check if user is eligible to be a guarantor.
     Returns (is_eligible, total_deposits)
     """
+    # Get current system configuration
+    config = get_system_config()
+    minimum_deposit_for_guarantor = config.minimum_deposit_for_guarantor
+    
     # Calculate total deposits for the user
     total_deposits_result = db.deposits.aggregate([
         {"$match": {"user_id": user_id, "status": "completed"}},
@@ -227,7 +269,7 @@ def check_guarantor_eligibility(user_id: str) -> tuple[bool, float]:
     total_deposits_list = list(total_deposits_result)
     total_deposits = total_deposits_list[0]["total"] if total_deposits_list else 0
     
-    is_eligible = total_deposits >= MINIMUM_DEPOSIT_FOR_GUARANTOR
+    is_eligible = total_deposits >= minimum_deposit_for_guarantor
     return is_eligible, total_deposits
 
 def create_admin_user():
@@ -291,9 +333,12 @@ def migrate_existing_applications():
     
     print("✅ Migration completed for finance applications")
 
-# Create admin user on startup
+# Create admin user and system config on startup
 create_admin_user()
 migrate_existing_applications()
+
+# Initialize system configuration
+get_system_config()
 
 # API Routes
 
@@ -357,6 +402,51 @@ async def login(user: UserLogin):
 async def get_current_user_profile(current_user = Depends(get_current_user)):
     return User(**{k: v for k, v in current_user.items() if k != "password_hash"})
 
+# System Configuration endpoints
+@app.get("/api/admin/system-config")
+async def get_system_configuration(current_user = Depends(require_role([UserRole.GENERAL_ADMIN]))):
+    """Get current system configuration"""
+    config = get_system_config()
+    return config
+
+@app.put("/api/admin/system-config")
+async def update_system_configuration(
+    config_update: SystemConfigUpdate, 
+    current_user = Depends(require_role([UserRole.GENERAL_ADMIN]))
+):
+    """Update system configuration"""
+    current_config = get_system_config()
+    
+    # Prepare update data
+    update_data = {
+        "updated_at": datetime.utcnow(),
+        "updated_by": current_user["id"]
+    }
+    
+    # Update only provided fields
+    if config_update.minimum_deposit_for_guarantor is not None:
+        update_data["minimum_deposit_for_guarantor"] = config_update.minimum_deposit_for_guarantor
+        
+    if config_update.priority_weight is not None:
+        update_data["priority_weight"] = config_update.priority_weight
+        
+    if config_update.max_loan_amount is not None:
+        update_data["max_loan_amount"] = config_update.max_loan_amount
+        
+    if config_update.max_loan_duration_months is not None:
+        update_data["max_loan_duration_months"] = config_update.max_loan_duration_months
+    
+    # Update configuration
+    db.system_config.update_one(
+        {"id": "system_config"},
+        {"$set": update_data},
+        upsert=True
+    )
+    
+    # Return updated configuration
+    updated_config = get_system_config()
+    return updated_config
+
 # Member endpoints (original functionality)
 @app.post("/api/deposits")
 async def create_deposit(deposit: DepositCreate, current_user = Depends(get_current_user)):
@@ -405,6 +495,22 @@ async def get_eligible_guarantors(current_user = Depends(get_current_user)):
 async def create_finance_application(application: FinanceApplicationCreate, current_user = Depends(get_current_user)):
     app_id = str(uuid.uuid4())
     
+    # Get current system configuration
+    config = get_system_config()
+    
+    # Validate loan amount and duration against system limits
+    if config.max_loan_amount and application.amount > config.max_loan_amount:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Requested amount exceeds maximum loan amount of {config.max_loan_amount}"
+        )
+    
+    if config.max_loan_duration_months and application.requested_duration_months > config.max_loan_duration_months:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Requested duration exceeds maximum loan duration of {config.max_loan_duration_months} months"
+        )
+    
     # Calculate priority score
     priority_score, previous_finances_count = calculate_priority_score(current_user["id"])
     
@@ -420,7 +526,7 @@ async def create_finance_application(application: FinanceApplicationCreate, curr
         if not is_eligible:
             raise HTTPException(
                 status_code=400, 
-                detail=f"User {guarantor['full_name']} is not eligible to be a guarantor. Minimum deposit required: ${MINIMUM_DEPOSIT_FOR_GUARANTOR}"
+                detail=f"User {guarantor['full_name']} is not eligible to be a guarantor. Minimum deposit required: ${config.minimum_deposit_for_guarantor}"
             )
         
         # Create guarantor record
@@ -552,6 +658,9 @@ async def get_user_dashboard(current_user = Depends(get_current_user)):
         return await get_general_admin_dashboard(current_user)
 
 async def get_member_dashboard(current_user):
+    # Get current system configuration
+    config = get_system_config()
+    
     # Calculate dashboard metrics
     total_deposits = db.deposits.aggregate([
         {"$match": {"user_id": current_user["id"]}},
@@ -590,7 +699,7 @@ async def get_member_dashboard(current_user):
         "total_applications": total_applications,
         "pending_repayments": pending_repayments,
         "is_eligible_guarantor": is_eligible_guarantor,
-        "minimum_deposit_for_guarantor": MINIMUM_DEPOSIT_FOR_GUARANTOR,
+        "minimum_deposit_for_guarantor": config.minimum_deposit_for_guarantor,
         "pending_guarantor_requests": pending_guarantor_requests,
         "recent_deposits": [Deposit(**dep) for dep in recent_deposits],
         "recent_applications": [FinanceApplication(**app) for app in recent_applications]
@@ -684,6 +793,9 @@ async def get_fund_admin_dashboard(current_user):
     }
 
 async def get_general_admin_dashboard(current_user):
+    # Get current system configuration
+    config = get_system_config()
+    
     # Complete system overview
     total_users = db.users.count_documents({})
     role_distribution = list(db.users.aggregate([
@@ -745,6 +857,7 @@ async def get_general_admin_dashboard(current_user):
         "application_stats": application_stats,
         "priority_stats": priority_stats[0] if priority_stats else {"avg_priority": 0, "max_priority": 0, "min_priority": 0},
         "guarantor_stats": guarantor_stats,
+        "system_config": config,
         "recent_users": [User(**{k: v for k, v in user.items() if k != "password_hash"}) for user in recent_users],
         "recent_applications": [FinanceApplication(**app) for app in recent_applications]
     }
@@ -791,8 +904,16 @@ async def get_all_applications(current_user = Depends(require_role([UserRole.COU
         # Fund admins and general admins see all applications, sorted by priority
         applications = list(db.finance_applications.find({}).sort([("priority_score", -1), ("created_at", 1)]))
     
-    # Add guarantors to each application
+    # Add guarantors to each application and ensure all fields exist
     for app in applications:
+        # Ensure all required fields exist
+        if "priority_score" not in app or app["priority_score"] is None:
+            app["priority_score"] = 0
+        if "previous_finances_count" not in app:
+            app["previous_finances_count"] = 0
+        if "review_notes" not in app:
+            app["review_notes"] = None
+            
         guarantors = list(db.guarantors.find({"application_id": app["id"]}))
         app["guarantors"] = [GuarantorResponse(**g) for g in guarantors]
         
@@ -833,6 +954,14 @@ async def update_application_status(
     
     # Return updated application
     updated_application = db.finance_applications.find_one({"id": application_id})
+    
+    # Ensure all fields exist
+    if "priority_score" not in updated_application or updated_application["priority_score"] is None:
+        updated_application["priority_score"] = 0
+    if "previous_finances_count" not in updated_application:
+        updated_application["previous_finances_count"] = 0
+    if "review_notes" not in updated_application:
+        updated_application["review_notes"] = None
     
     # Add guarantors
     guarantors = list(db.guarantors.find({"application_id": application_id}))
