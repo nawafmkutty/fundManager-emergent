@@ -57,6 +57,9 @@ class FundManagementAPITest(unittest.TestCase):
                 "password": self.test_user["password"]
             }
         )
+        print(f"Login response status: {response.status_code}")
+        print(f"Login response body: {response.text}")
+        
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("access_token", data)
