@@ -308,20 +308,28 @@ class FundManagementFixesTest(unittest.TestCase):
     def test_11_disburse_application(self):
         """Test disbursing the approved application"""
         print("\n🔍 Testing application disbursement...")
-        if not self.application_id:
-            self.skipTest("Application ID not found")
+        if not self.admin_token or not self.application_id:
+            self.skipTest("Admin token or application ID not found")
             
         headers = {"Authorization": f"Bearer {self.admin_token}"}
+        debug_print(f"Using admin token: {self.admin_token[:20]}...")
+        debug_print(f"Application ID: {self.application_id}")
+        
         disbursement_data = {
             "notes": "Test disbursement",
             "reference_number": f"TEST-{uuid.uuid4().hex[:8].upper()}",
             "disbursement_method": "bank_transfer"
         }
+        debug_print(f"Disbursement data: {disbursement_data}")
+        
         response = requests.post(
             f"{self.api_url}/api/admin/applications/{self.application_id}/disburse",
             json=disbursement_data,
             headers=headers
         )
+        debug_print(f"Response status: {response.status_code}")
+        debug_print(f"Response body: {response.text[:200]}...")
+        
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("disbursement", data)
@@ -331,8 +339,16 @@ class FundManagementFixesTest(unittest.TestCase):
     def test_12_get_payment_schedules_endpoint(self):
         """Test GET /api/payment-schedules endpoint (previously had ObjectId serialization issues)"""
         print("\n🔍 Testing GET /api/payment-schedules endpoint...")
+        if not self.user_token:
+            self.skipTest("User token not found")
+            
         headers = {"Authorization": f"Bearer {self.user_token}"}
+        debug_print(f"Using user token: {self.user_token[:20]}...")
+        
         response = requests.get(f"{self.api_url}/api/payment-schedules", headers=headers)
+        debug_print(f"Response status: {response.status_code}")
+        debug_print(f"Response body: {response.text[:200]}...")
+        
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIsInstance(data, list)
@@ -348,8 +364,16 @@ class FundManagementFixesTest(unittest.TestCase):
     def test_13_get_admin_disbursements_endpoint(self):
         """Test GET /api/admin/disbursements endpoint (previously had ObjectId serialization issues)"""
         print("\n🔍 Testing GET /api/admin/disbursements endpoint...")
+        if not self.admin_token:
+            self.skipTest("Admin token not found")
+            
         headers = {"Authorization": f"Bearer {self.admin_token}"}
+        debug_print(f"Using admin token: {self.admin_token[:20]}...")
+        
         response = requests.get(f"{self.api_url}/api/admin/disbursements", headers=headers)
+        debug_print(f"Response status: {response.status_code}")
+        debug_print(f"Response body: {response.text[:200]}...")
+        
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIsInstance(data, list)
