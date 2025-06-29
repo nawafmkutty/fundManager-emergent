@@ -927,7 +927,7 @@ async def respond_to_guarantor_request(
 
 @app.get("/api/repayments")
 async def get_user_repayments(current_user = Depends(get_current_user)):
-    repayments = list(db.repayments.find({"user_id": current_user["id"]}).sort("due_date", 1))
+    repayments = list(db.repayments.find({"user_id": current_user["id"]}, {"_id": 0}).sort("due_date", 1))
     return [Repayment(**repayment) for repayment in repayments]
 
 @app.get("/api/dashboard")
