@@ -181,6 +181,9 @@ class FundManagementAPITest(unittest.TestCase):
 
     def test_06_get_user_profile(self):
         """Test getting user profile"""
+        # Ensure token is set
+        self.assertIsNotNone(self.token, "Token should not be None")
+        
         headers = {"Authorization": f"Bearer {self.token}"}
         print(f"Using token: {self.token[:20]}...")
         print(f"Headers: {headers}")
