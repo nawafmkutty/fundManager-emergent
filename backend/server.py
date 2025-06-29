@@ -652,8 +652,16 @@ async def get_fund_admin_dashboard(current_user):
         "status": {"$in": ["pending", "under_review"]}
     }).sort([("priority_score", -1), ("created_at", 1)]).limit(10))
     
-    # Add guarantor info to applications
+    # Add guarantor info to applications and ensure all fields exist
     for app in high_priority_applications:
+        # Ensure all required fields exist
+        if "priority_score" not in app or app["priority_score"] is None:
+            app["priority_score"] = 0
+        if "previous_finances_count" not in app:
+            app["previous_finances_count"] = 0
+        if "review_notes" not in app:
+            app["review_notes"] = None
+            
         guarantors = list(db.guarantors.find({"application_id": app["id"]}))
         app["guarantors"] = [GuarantorResponse(**g) for g in guarantors]
     
