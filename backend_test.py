@@ -17,8 +17,37 @@ class FundManagementAPITest(unittest.TestCase):
             "country": "Test Country",
             "phone": "1234567890"
         }
+        # Create additional users for guarantor testing
+        self.guarantor_user_a = {
+            "email": f"guarantor_a_{uuid.uuid4()}@example.com",
+            "password": "Test123!",
+            "full_name": "Guarantor A",
+            "country": "Test Country",
+            "phone": "1234567890"
+        }
+        self.guarantor_user_b = {
+            "email": f"guarantor_b_{uuid.uuid4()}@example.com",
+            "password": "Test123!",
+            "full_name": "Guarantor B",
+            "country": "Test Country",
+            "phone": "1234567890"
+        }
+        self.guarantor_user_c = {
+            "email": f"guarantor_c_{uuid.uuid4()}@example.com",
+            "password": "Test123!",
+            "full_name": "Guarantor C",
+            "country": "Test Country",
+            "phone": "1234567890"
+        }
         self.token = None
         self.user_id = None
+        self.guarantor_a_token = None
+        self.guarantor_a_id = None
+        self.guarantor_b_token = None
+        self.guarantor_b_id = None
+        self.guarantor_c_token = None
+        self.guarantor_c_id = None
+        self.admin_token = None
 
     def test_01_health_check(self):
         """Test the health check endpoint"""
