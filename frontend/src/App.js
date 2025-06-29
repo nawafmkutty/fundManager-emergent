@@ -24,6 +24,11 @@ function App() {
   const [deposits, setDeposits] = useState([]);
   const [applications, setApplications] = useState([]);
   const [repayments, setRepayments] = useState([]);
+  const [adminData, setAdminData] = useState({
+    users: [],
+    allApplications: [],
+    allDeposits: []
+  });
 
   // Form states
   const [depositForm, setDepositForm] = useState({ amount: '', description: '' });
@@ -110,6 +115,26 @@ function App() {
     }
   };
 
+  const fetchAdminData = async () => {
+    try {
+      if (isAdmin()) {
+        const [usersData, applicationsData, depositsData] = await Promise.all([
+          api('/api/admin/users').catch(() => []),
+          api('/api/admin/applications').catch(() => []),
+          api('/api/admin/deposits').catch(() => [])
+        ]);
+        
+        setAdminData({
+          users: usersData,
+          allApplications: applicationsData,
+          allDeposits: depositsData
+        });
+      }
+    } catch (error) {
+      console.error('Failed to fetch admin data:', error);
+    }
+  };
+
   const handleAuth = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -189,6 +214,47 @@ function App() {
     setLoading(false);
   };
 
+  const updateUserRole = async (userId, newRole) => {
+    try {
+      await api('/api/admin/users/role', {
+        method: 'PUT',
+        body: { user_id: userId, new_role: newRole }
+      });
+      
+      fetchAdminData();
+      alert('User role updated successfully!');
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  const updateApplicationStatus = async (applicationId, status, notes = '') => {
+    try {
+      await api(`/api/admin/applications/${applicationId}/status`, {
+        method: 'PUT',
+        body: { status, review_notes: notes }
+      });
+      
+      fetchAdminData();
+      fetchApplications();
+      alert('Application status updated successfully!');
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  const isAdmin = () => {
+    return user && ['country_coordinator', 'fund_admin', 'general_admin'].includes(user.role);
+  };
+
+  const isGeneralAdmin = () => {
+    return user && user.role === 'general_admin';
+  };
+
+  const isFundAdmin = () => {
+    return user && ['fund_admin', 'general_admin'].includes(user.role);
+  };
+
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -219,6 +285,21 @@ function App() {
     );
   };
 
+  const getRoleBadge = (role) => {
+    const colors = {
+      member: 'bg-gray-100 text-gray-800',
+      country_coordinator: 'bg-blue-100 text-blue-800',
+      fund_admin: 'bg-purple-100 text-purple-800',
+      general_admin: 'bg-red-100 text-red-800'
+    };
+
+    return (
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${colors[role] || 'bg-gray-100 text-gray-800'}`}>
+        {role.replace('_', ' ').toUpperCase()}
+      </span>
+    );
+  };
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
@@ -226,6 +307,11 @@ function App() {
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Fund Manager</h1>
             <p className="text-gray-600">Your personal finance companion</p>
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg">
+              <p className="text-sm text-blue-800 font-medium">Admin Login:</p>
+              <p className="text-xs text-blue-600">Email: admin@fundmanager.com</p>
+              <p className="text-xs text-blue-600">Password: FundAdmin2024!</p>
+            </div>
           </div>
 
           <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
@@ -316,6 +402,20 @@ function App() {
     );
   }
 
+  const getNavItems = () => {
+    const baseItems = ['dashboard'];
+    
+    if (user.role === 'member') {
+      return [...baseItems, 'deposits', 'applications', 'repayments'];
+    }
+    
+    if (isAdmin()) {
+      return [...baseItems, 'deposits', 'applications', 'repayments', 'manage-users', 'manage-applications'];
+    }
+    
+    return baseItems;
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -327,9 +427,7 @@ function App() {
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">Welcome, {user.full_name}</span>
-              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                {user.role.replace('_', ' ').toUpperCase()}
-              </span>
+              {getRoleBadge(user.role)}
               <button
                 onClick={logout}
                 className="text-sm text-red-600 hover:text-red-800"
@@ -343,8 +441,8 @@ function App() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Navigation */}
-        <nav className="flex space-x-8 mb-8">
-          {['dashboard', 'deposits', 'applications', 'repayments'].map((tab) => (
+        <nav className="flex space-x-8 mb-8 overflow-x-auto">
+          {getNavItems().map((tab) => (
             <button
               key={tab}
               onClick={() => {
@@ -352,14 +450,15 @@ function App() {
                 if (tab === 'deposits') fetchDeposits();
                 if (tab === 'applications') fetchApplications();
                 if (tab === 'repayments') fetchRepayments();
+                if (tab === 'manage-users' || tab === 'manage-applications') fetchAdminData();
               }}
-              className={`px-3 py-2 rounded-md text-sm font-medium ${
+              className={`px-3 py-2 rounded-md text-sm font-medium whitespace-nowrap ${
                 activeTab === tab
                   ? 'bg-blue-100 text-blue-700'
                   : 'text-gray-500 hover:text-gray-700'
               }`}
             >
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+              {tab.replace('-', ' ').charAt(0).toUpperCase() + tab.replace('-', ' ').slice(1)}
             </button>
           ))}
         </nav>
@@ -367,102 +466,360 @@ function App() {
         {/* Content */}
         {activeTab === 'dashboard' && dashboard && (
           <div className="space-y-6">
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-green-100 rounded-md">
-                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-                    </svg>
+            {/* Role-specific dashboard content */}
+            {dashboard.role === 'member' && (
+              <>
+                {/* Member Dashboard */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-green-100 rounded-md">
+                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                        </svg>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600">Total Deposits</p>
+                        <p className="text-2xl font-semibold text-gray-900">{formatCurrency(dashboard.total_deposits)}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Deposits</p>
-                    <p className="text-2xl font-semibold text-gray-900">{formatCurrency(dashboard.total_deposits)}</p>
-                  </div>
-                </div>
-              </div>
 
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-blue-100 rounded-md">
-                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-blue-100 rounded-md">
+                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600">Finance Applications</p>
+                        <p className="text-2xl font-semibold text-gray-900">{dashboard.total_applications}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Finance Applications</p>
-                    <p className="text-2xl font-semibold text-gray-900">{dashboard.total_applications}</p>
-                  </div>
-                </div>
-              </div>
 
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center">
-                  <div className="p-2 bg-red-100 rounded-md">
-                    <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Pending Repayments</p>
-                    <p className="text-2xl font-semibold text-gray-900">{formatCurrency(dashboard.pending_repayments)}</p>
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-red-100 rounded-md">
+                        <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600">Pending Repayments</p>
+                        <p className="text-2xl font-semibold text-gray-900">{formatCurrency(dashboard.pending_repayments)}</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </>
+            )}
+
+            {dashboard.role === 'country_coordinator' && (
+              <>
+                {/* Country Coordinator Dashboard */}
+                <div className="bg-blue-50 rounded-lg p-6 mb-6">
+                  <h2 className="text-lg font-semibold text-blue-900 mb-2">Country Coordinator - {dashboard.country}</h2>
+                  <p className="text-blue-700">Manage members and applications in your country</p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-blue-100 rounded-md">
+                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600">Country Members</p>
+                        <p className="text-2xl font-semibold text-gray-900">{dashboard.country_members}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-yellow-100 rounded-md">
+                        <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600">Pending Applications</p>
+                        <p className="text-2xl font-semibold text-gray-900">{dashboard.pending_applications}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-green-100 rounded-md">
+                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                        </svg>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600">Total Deposits</p>
+                        <p className="text-2xl font-semibold text-gray-900">{formatCurrency(dashboard.total_deposits_in_country)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {dashboard.role === 'fund_admin' && (
+              <>
+                {/* Fund Admin Dashboard */}
+                <div className="bg-purple-50 rounded-lg p-6 mb-6">
+                  <h2 className="text-lg font-semibold text-purple-900 mb-2">Fund Administrator</h2>
+                  <p className="text-purple-700">Manage fund disbursals and high-value applications</p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-blue-100 rounded-md">
+                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600">Total Members</p>
+                        <p className="text-2xl font-semibold text-gray-900">{dashboard.total_members}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-green-100 rounded-md">
+                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                        </svg>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600">Total Fund Value</p>
+                        <p className="text-2xl font-semibold text-gray-900">{formatCurrency(dashboard.total_fund_value)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-yellow-100 rounded-md">
+                        <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600">Total Applications</p>
+                        <p className="text-2xl font-semibold text-gray-900">{dashboard.total_applications}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-purple-100 rounded-md">
+                        <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600">Disbursed Amount</p>
+                        <p className="text-2xl font-semibold text-gray-900">{formatCurrency(dashboard.disbursed_amount)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {dashboard.role === 'general_admin' && (
+              <>
+                {/* General Admin Dashboard */}
+                <div className="bg-red-50 rounded-lg p-6 mb-6">
+                  <h2 className="text-lg font-semibold text-red-900 mb-2">System Administrator</h2>
+                  <p className="text-red-700">Complete system oversight and user management</p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-blue-100 rounded-md">
+                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600">Total Users</p>
+                        <p className="text-2xl font-semibold text-gray-900">{dashboard.total_users}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <div className="flex items-center">
+                      <div className="p-2 bg-green-100 rounded-md">
+                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                        </svg>
+                      </div>
+                      <div className="ml-4">
+                        <p className="text-sm font-medium text-gray-600">Total Deposits</p>
+                        <p className="text-2xl font-semibold text-gray-900">{formatCurrency(dashboard.total_deposits)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white rounded-lg shadow p-6">
+                    <h3 className="text-sm font-medium text-gray-600 mb-2">Role Distribution</h3>
+                    <div className="space-y-1">
+                      {dashboard.role_distribution.map((role) => (
+                        <div key={role._id} className="flex justify-between text-sm">
+                          <span className="capitalize">{role._id.replace('_', ' ')}</span>
+                          <span className="font-medium">{role.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Manage Users Tab (Admin Only) */}
+        {activeTab === 'manage-users' && isAdmin() && (
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-medium text-gray-900">User Management</h3>
             </div>
-
-            {/* Recent Activity */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white rounded-lg shadow">
-                <div className="p-6 border-b">
-                  <h3 className="text-lg font-medium text-gray-900">Recent Deposits</h3>
-                </div>
-                <div className="p-6">
-                  {dashboard.recent_deposits.length > 0 ? (
-                    <div className="space-y-3">
-                      {dashboard.recent_deposits.map((deposit) => (
-                        <div key={deposit.id} className="flex justify-between items-center">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{formatCurrency(deposit.amount)}</p>
-                            <p className="text-xs text-gray-500">{formatDate(deposit.created_at)}</p>
-                          </div>
-                          {getStatusBadge(deposit.status)}
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Country</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                    {isGeneralAdmin() && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {adminData.users.map((adminUser) => (
+                    <tr key={adminUser.id}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">{adminUser.full_name}</div>
+                          <div className="text-sm text-gray-500">{adminUser.email}</div>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500">No deposits yet</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="bg-white rounded-lg shadow">
-                <div className="p-6 border-b">
-                  <h3 className="text-lg font-medium text-gray-900">Recent Applications</h3>
-                </div>
-                <div className="p-6">
-                  {dashboard.recent_applications.length > 0 ? (
-                    <div className="space-y-3">
-                      {dashboard.recent_applications.map((app) => (
-                        <div key={app.id} className="flex justify-between items-center">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{formatCurrency(app.amount)}</p>
-                            <p className="text-xs text-gray-500">{app.purpose}</p>
-                          </div>
-                          {getStatusBadge(app.status)}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-gray-500">No applications yet</p>
-                  )}
-                </div>
-              </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {adminUser.country}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {getRoleBadge(adminUser.role)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {formatDate(adminUser.created_at)}
+                      </td>
+                      {isGeneralAdmin() && (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <select
+                            value={adminUser.role}
+                            onChange={(e) => updateUserRole(adminUser.id, e.target.value)}
+                            className="text-sm border border-gray-300 rounded px-2 py-1"
+                          >
+                            <option value="member">Member</option>
+                            <option value="country_coordinator">Country Coordinator</option>
+                            <option value="fund_admin">Fund Admin</option>
+                            <option value="general_admin">General Admin</option>
+                          </select>
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
 
+        {/* Manage Applications Tab (Admin Only) */}
+        {activeTab === 'manage-applications' && isAdmin() && (
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-6 border-b">
+              <h3 className="text-lg font-medium text-gray-900">Application Management</h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applicant</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Purpose</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {adminData.allApplications.map((app) => (
+                    <tr key={app.id}>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        User ID: {app.user_id.substr(0, 8)}...
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {formatCurrency(app.amount)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {app.purpose}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {getStatusBadge(app.status)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <div className="flex space-x-2">
+                          {app.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => updateApplicationStatus(app.id, 'approved')}
+                                className="text-green-600 hover:text-green-800 text-xs bg-green-100 px-2 py-1 rounded"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => updateApplicationStatus(app.id, 'rejected')}
+                                className="text-red-600 hover:text-red-800 text-xs bg-red-100 px-2 py-1 rounded"
+                              >
+                                Reject
+                              </button>
+                            </>
+                          )}
+                          {app.status === 'approved' && isFundAdmin() && (
+                            <button
+                              onClick={() => updateApplicationStatus(app.id, 'disbursed')}
+                              className="text-purple-600 hover:text-purple-800 text-xs bg-purple-100 px-2 py-1 rounded"
+                            >
+                              Disburse
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Regular user tabs (existing functionality) */}
         {activeTab === 'deposits' && (
           <div className="space-y-6">
             {/* Add Deposit Form */}
