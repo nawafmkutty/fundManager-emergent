@@ -76,6 +76,10 @@ class FundManagementAPITest(unittest.TestCase):
         self.token = data["access_token"]
         self.user_id = data["user"]["id"]
         print(f"✅ User registration successful: {self.test_user['email']}")
+        
+        # Print token for debugging
+        print(f"Token: {self.token[:10]}...")
+        print(f"User ID: {self.user_id}")
 
     def test_03_admin_login(self):
         """Test admin login"""
