@@ -179,7 +179,12 @@ class FundManagementAPITest(unittest.TestCase):
     def test_06_get_user_profile(self):
         """Test getting user profile"""
         headers = {"Authorization": f"Bearer {self.token}"}
+        print(f"Using token: {self.token[:20]}...")
+        print(f"Headers: {headers}")
         response = requests.get(f"{self.api_url}/api/auth/me", headers=headers)
+        print(f"Response status: {response.status_code}")
+        print(f"Response body: {response.text}")
+        
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["email"], self.test_user["email"])
