@@ -177,5 +177,24 @@ if __name__ == "__main__":
     test_suite.addTest(FundManagementAPITest('test_09_get_repayments'))
     test_suite.addTest(FundManagementAPITest('test_10_get_dashboard'))
     
-    runner = unittest.TextTestRunner()
-    runner.run(test_suite)
+    runner = unittest.TextTestRunner(verbosity=2)
+    result = runner.run(test_suite)
+    
+    # Print summary
+    print("\n=== TEST SUMMARY ===")
+    print(f"Total tests: {result.testsRun}")
+    print(f"Passed: {result.testsRun - len(result.failures) - len(result.errors)}")
+    print(f"Failed: {len(result.failures)}")
+    print(f"Errors: {len(result.errors)}")
+    
+    if result.failures:
+        print("\n=== FAILURES ===")
+        for test, error in result.failures:
+            print(f"\n{test}")
+            print(error)
+    
+    if result.errors:
+        print("\n=== ERRORS ===")
+        for test, error in result.errors:
+            print(f"\n{test}")
+            print(error)
