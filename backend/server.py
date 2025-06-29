@@ -1220,13 +1220,13 @@ async def disburse_application(
 @app.get("/api/admin/disbursements")
 async def get_disbursements(current_user = Depends(require_role([UserRole.FUND_ADMIN, UserRole.GENERAL_ADMIN]))):
     """Get all disbursements"""
-    disbursements = list(db.disbursements.find().sort("disbursement_date", -1))
+    disbursements = list(db.disbursements.find({}, {"_id": 0}).sort("disbursement_date", -1))
     
     # Add application details
     for disbursement in disbursements:
-        application = db.finance_applications.find_one({"id": disbursement["application_id"]})
+        application = db.finance_applications.find_one({"id": disbursement["application_id"]}, {"_id": 0})
         if application:
-            applicant = db.users.find_one({"id": application["user_id"]}, {"password_hash": 0})
+            applicant = db.users.find_one({"id": application["user_id"]}, {"password_hash": 0, "_id": 0})
             disbursement["application_details"] = {
                 "purpose": application["purpose"],
                 "applicant_name": applicant["full_name"] if applicant else "Unknown"
