@@ -101,16 +101,26 @@ class FundManagementFixesTest(unittest.TestCase):
     def test_04_create_guarantor_deposit(self):
         """Test creating a deposit for guarantor"""
         print("\n🔍 Testing guarantor deposit creation...")
+        if not self.guarantor_token:
+            self.skipTest("Guarantor token not found")
+            
         headers = {"Authorization": f"Bearer {self.guarantor_token}"}
+        debug_print(f"Using guarantor token: {self.guarantor_token[:20]}...")
+        
         deposit_data = {
             "amount": 1000.00,
             "description": "Initial deposit for guarantor eligibility"
         }
+        debug_print(f"Deposit data: {deposit_data}")
+        
         response = requests.post(
             f"{self.api_url}/api/deposits",
             json=deposit_data,
             headers=headers
         )
+        debug_print(f"Response status: {response.status_code}")
+        debug_print(f"Response body: {response.text}")
+        
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["amount"], deposit_data["amount"])
