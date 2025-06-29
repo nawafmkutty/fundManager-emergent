@@ -188,7 +188,7 @@ class FundManagementAPITest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         print("✅ Guarantor C deposit ($1000) successful")
 
-    def test_04_get_user_profile(self):
+    def test_06_get_user_profile(self):
         """Test getting user profile"""
         headers = {"Authorization": f"Bearer {self.token}"}
         response = requests.get(f"{self.api_url}/api/auth/me", headers=headers)
@@ -198,7 +198,7 @@ class FundManagementAPITest(unittest.TestCase):
         self.assertEqual(data["full_name"], self.test_user["full_name"])
         print("✅ Get user profile successful")
 
-    def test_05_create_deposit(self):
+    def test_07_create_deposit(self):
         """Test creating a deposit"""
         headers = {"Authorization": f"Bearer {self.token}"}
         deposit_data = {
@@ -217,7 +217,7 @@ class FundManagementAPITest(unittest.TestCase):
         self.assertEqual(data["status"], "completed")
         print("✅ Create deposit successful")
 
-    def test_06_get_deposits(self):
+    def test_08_get_deposits(self):
         """Test getting user deposits"""
         headers = {"Authorization": f"Bearer {self.token}"}
         response = requests.get(f"{self.api_url}/api/deposits", headers=headers)
@@ -228,14 +228,31 @@ class FundManagementAPITest(unittest.TestCase):
             self.assertEqual(data[0]["user_id"], self.user_id)
         print("✅ Get deposits successful")
 
-    def test_07_create_finance_application(self):
-        """Test creating a finance application"""
+    def test_09_get_eligible_guarantors(self):
+        """Test getting eligible guarantors"""
+        headers = {"Authorization": f"Bearer {self.token}"}
+        response = requests.get(f"{self.api_url}/api/guarantors/eligible", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data, list)
+        
+        # Check if guarantors with sufficient deposits are in the list
+        guarantor_ids = [g["id"] for g in data]
+        self.assertIn(self.guarantor_a_id, guarantor_ids, "Guarantor A should be eligible")
+        self.assertIn(self.guarantor_c_id, guarantor_ids, "Guarantor C should be eligible")
+        self.assertNotIn(self.guarantor_b_id, guarantor_ids, "Guarantor B should not be eligible")
+        
+        print("✅ Get eligible guarantors successful")
+
+    def test_10_create_finance_application_with_guarantors(self):
+        """Test creating a finance application with guarantors"""
         headers = {"Authorization": f"Bearer {self.token}"}
         application_data = {
             "amount": 500.75,
-            "purpose": "Test purpose",
+            "purpose": "Test purpose with guarantors",
             "requested_duration_months": 6,
-            "description": "Test application description"
+            "description": "Test application with guarantors",
+            "guarantors": [self.guarantor_a_id, self.guarantor_c_id]
         }
         response = requests.post(
             f"{self.api_url}/api/finance-applications",
@@ -246,22 +263,159 @@ class FundManagementAPITest(unittest.TestCase):
         data = response.json()
         self.assertEqual(data["amount"], application_data["amount"])
         self.assertEqual(data["purpose"], application_data["purpose"])
-        self.assertEqual(data["requested_duration_months"], application_data["requested_duration_months"])
         self.assertEqual(data["status"], "pending")
-        print("✅ Create finance application successful")
+        
+        # Check priority score for first application (should be 100)
+        self.assertEqual(data["priority_score"], 100, "First application should have priority score of 100")
+        self.assertEqual(data["previous_finances_count"], 0, "First application should have 0 previous finances")
+        
+        # Check guarantors
+        self.assertEqual(len(data["guarantors"]), 2, "Application should have 2 guarantors")
+        guarantor_ids = [g["guarantor_user_id"] for g in data["guarantors"]]
+        self.assertIn(self.guarantor_a_id, guarantor_ids)
+        self.assertIn(self.guarantor_c_id, guarantor_ids)
+        
+        # Save application ID for later tests
+        self.application_id = data["id"]
+        print("✅ Create finance application with guarantors successful")
 
-    def test_08_get_finance_applications(self):
+    def test_11_create_second_finance_application(self):
+        """Test creating a second finance application to check priority"""
+        headers = {"Authorization": f"Bearer {self.token}"}
+        application_data = {
+            "amount": 300.50,
+            "purpose": "Second application",
+            "requested_duration_months": 3,
+            "description": "Testing priority system"
+        }
+        response = requests.post(
+            f"{self.api_url}/api/finance-applications",
+            json=application_data,
+            headers=headers
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        
+        # Check priority score for second application (should be 90)
+        self.assertEqual(data["priority_score"], 90, "Second application should have priority score of 90")
+        self.assertEqual(data["previous_finances_count"], 1, "Second application should have 1 previous finance")
+        
+        print("✅ Create second finance application successful")
+
+    def test_12_create_third_finance_application(self):
+        """Test creating a third finance application to check priority"""
+        headers = {"Authorization": f"Bearer {self.token}"}
+        application_data = {
+            "amount": 200.25,
+            "purpose": "Third application",
+            "requested_duration_months": 2,
+            "description": "Testing priority system further"
+        }
+        response = requests.post(
+            f"{self.api_url}/api/finance-applications",
+            json=application_data,
+            headers=headers
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        
+        # Check priority score for third application (should be 80)
+        self.assertEqual(data["priority_score"], 80, "Third application should have priority score of 80")
+        self.assertEqual(data["previous_finances_count"], 2, "Third application should have 2 previous finances")
+        
+        print("✅ Create third finance application successful")
+
+    def test_13_get_finance_applications(self):
         """Test getting user finance applications"""
         headers = {"Authorization": f"Bearer {self.token}"}
         response = requests.get(f"{self.api_url}/api/finance-applications", headers=headers)
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIsInstance(data, list)
-        if len(data) > 0:
-            self.assertEqual(data[0]["user_id"], self.user_id)
+        self.assertEqual(len(data), 3, "Should have 3 applications")
+        
+        # Applications should be sorted by created_at (newest first)
+        self.assertEqual(data[0]["priority_score"], 80, "Most recent application should have priority 80")
+        self.assertEqual(data[1]["priority_score"], 90, "Second application should have priority 90")
+        self.assertEqual(data[2]["priority_score"], 100, "First application should have priority 100")
+        
         print("✅ Get finance applications successful")
 
-    def test_09_get_repayments(self):
+    def test_14_check_guarantor_requests(self):
+        """Test checking guarantor requests"""
+        # Check guarantor A's requests
+        headers = {"Authorization": f"Bearer {self.guarantor_a_token}"}
+        response = requests.get(f"{self.api_url}/api/guarantor-requests", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 1, "Guarantor A should have 1 request")
+        self.assertEqual(data[0]["status"], "pending", "Request should be pending")
+        self.guarantor_a_request_id = data[0]["id"]
+        
+        # Check guarantor C's requests
+        headers = {"Authorization": f"Bearer {self.guarantor_c_token}"}
+        response = requests.get(f"{self.api_url}/api/guarantor-requests", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data, list)
+        self.assertEqual(len(data), 1, "Guarantor C should have 1 request")
+        self.assertEqual(data[0]["status"], "pending", "Request should be pending")
+        self.guarantor_c_request_id = data[0]["id"]
+        
+        print("✅ Check guarantor requests successful")
+
+    def test_15_respond_to_guarantor_requests(self):
+        """Test responding to guarantor requests"""
+        # Guarantor A accepts
+        headers = {"Authorization": f"Bearer {self.guarantor_a_token}"}
+        response = requests.put(
+            f"{self.api_url}/api/guarantor-requests/{self.guarantor_a_request_id}/respond",
+            json={"status": "accepted"},
+            headers=headers
+        )
+        self.assertEqual(response.status_code, 200)
+        
+        # Guarantor C declines
+        headers = {"Authorization": f"Bearer {self.guarantor_c_token}"}
+        response = requests.put(
+            f"{self.api_url}/api/guarantor-requests/{self.guarantor_c_request_id}/respond",
+            json={"status": "declined"},
+            headers=headers
+        )
+        self.assertEqual(response.status_code, 200)
+        
+        # Verify guarantor A's request status
+        headers = {"Authorization": f"Bearer {self.guarantor_a_token}"}
+        response = requests.get(f"{self.api_url}/api/guarantor-requests", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data[0]["status"], "accepted", "Guarantor A's request should be accepted")
+        
+        # Verify guarantor C's request status
+        headers = {"Authorization": f"Bearer {self.guarantor_c_token}"}
+        response = requests.get(f"{self.api_url}/api/guarantor-requests", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data[0]["status"], "declined", "Guarantor C's request should be declined")
+        
+        print("✅ Respond to guarantor requests successful")
+
+    def test_16_check_admin_applications(self):
+        """Test checking admin applications view for priority sorting"""
+        headers = {"Authorization": f"Bearer {self.admin_token}"}
+        response = requests.get(f"{self.api_url}/api/admin/applications", headers=headers)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertIsInstance(data, list)
+        
+        # Admin view should sort by priority (highest first)
+        priorities = [app["priority_score"] for app in data if app["user_id"] == self.user_id]
+        self.assertEqual(priorities, sorted(priorities, reverse=True), "Applications should be sorted by priority (highest first)")
+        
+        print("✅ Check admin applications view successful")
+
+    def test_17_get_repayments(self):
         """Test getting user repayments"""
         headers = {"Authorization": f"Bearer {self.token}"}
         response = requests.get(f"{self.api_url}/api/repayments", headers=headers)
@@ -271,7 +425,7 @@ class FundManagementAPITest(unittest.TestCase):
         # New users shouldn't have repayments yet
         print("✅ Get repayments successful")
 
-    def test_10_get_dashboard(self):
+    def test_18_get_dashboard(self):
         """Test getting dashboard data"""
         headers = {"Authorization": f"Bearer {self.token}"}
         response = requests.get(f"{self.api_url}/api/dashboard", headers=headers)
@@ -282,7 +436,34 @@ class FundManagementAPITest(unittest.TestCase):
         self.assertIn("pending_repayments", data)
         self.assertIn("recent_deposits", data)
         self.assertIn("recent_applications", data)
+        
+        # Check guarantor eligibility
+        self.assertIn("is_eligible_guarantor", data)
+        self.assertIn("minimum_deposit_for_guarantor", data)
+        
         print("✅ Get dashboard successful")
+
+    def test_19_test_invalid_guarantor(self):
+        """Test creating application with invalid guarantor"""
+        headers = {"Authorization": f"Bearer {self.token}"}
+        application_data = {
+            "amount": 200.00,
+            "purpose": "Test invalid guarantor",
+            "requested_duration_months": 3,
+            "description": "Should fail with ineligible guarantor",
+            "guarantors": [self.guarantor_b_id]  # Guarantor B has insufficient deposits
+        }
+        response = requests.post(
+            f"{self.api_url}/api/finance-applications",
+            json=application_data,
+            headers=headers
+        )
+        self.assertEqual(response.status_code, 400)
+        data = response.json()
+        self.assertIn("detail", data)
+        self.assertIn("not eligible", data["detail"].lower())
+        
+        print("✅ Test invalid guarantor successful")
 
 if __name__ == "__main__":
     # Run tests in order
