@@ -253,36 +253,53 @@ class FundManagementFixesTest(unittest.TestCase):
     def test_09_respond_to_guarantor_request(self):
         """Test responding to guarantor request"""
         print("\n🔍 Testing guarantor request response...")
-        if not self.guarantor_request_id:
-            self.skipTest("Guarantor request ID not found")
+        if not self.guarantor_token or not self.guarantor_request_id:
+            self.skipTest("Guarantor token or request ID not found")
             
         headers = {"Authorization": f"Bearer {self.guarantor_token}"}
+        debug_print(f"Using guarantor token: {self.guarantor_token[:20]}...")
+        debug_print(f"Guarantor request ID: {self.guarantor_request_id}")
+        
+        response_data = {"status": "accepted"}
+        debug_print(f"Response data: {response_data}")
+        
         response = requests.put(
             f"{self.api_url}/api/guarantor-requests/{self.guarantor_request_id}/respond",
-            json={"status": "accepted"},
+            json=response_data,
             headers=headers
         )
+        debug_print(f"Response status: {response.status_code}")
+        debug_print(f"Response body: {response.text}")
+        
         self.assertEqual(response.status_code, 200)
         print("✅ Guarantor request accepted successfully")
 
     def test_10_approve_application(self):
         """Test approving the finance application as admin"""
         print("\n🔍 Testing application approval...")
-        if not self.application_id:
-            self.skipTest("Application ID not found")
+        if not self.admin_token or not self.application_id:
+            self.skipTest("Admin token or application ID not found")
             
         headers = {"Authorization": f"Bearer {self.admin_token}"}
+        debug_print(f"Using admin token: {self.admin_token[:20]}...")
+        debug_print(f"Application ID: {self.application_id}")
+        
         approval_data = {
             "action": "approve",
             "review_notes": "Approved for testing",
             "conditions": "None",
             "recommended_amount": 500.00
         }
+        debug_print(f"Approval data: {approval_data}")
+        
         response = requests.put(
             f"{self.api_url}/api/admin/applications/{self.application_id}/approve",
             json=approval_data,
             headers=headers
         )
+        debug_print(f"Response status: {response.status_code}")
+        debug_print(f"Response body: {response.text[:200]}...")
+        
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data["status"], "approved")
