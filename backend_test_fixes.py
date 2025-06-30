@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 
 # Use the public endpoint for testing
-API_URL = "https://63acd9f0-ae1e-442e-a051-257150880f67.preview.emergentagent.com"
+API_URL = "https://433806b5-1f2d-4f04-9e13-a9ca5a6ee55e.preview.emergentagent.com"
 
 # Enable debug mode to print detailed request/response info
 DEBUG = True
