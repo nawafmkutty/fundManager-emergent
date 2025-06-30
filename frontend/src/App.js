@@ -1908,6 +1908,26 @@ function App() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           {deposit.description || 'No description'}
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDate(deposit.created_at)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getStatusBadge(deposit.status)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {deposits.length === 0 && (
+                  <div className="p-6 text-center text-gray-500">
+                    No deposits found. Click "Add Deposit" to record your first deposit.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Repayments Tab */}
         {activeTab === 'repayments' && (
           <div className="space-y-6">
